@@ -56,9 +56,19 @@ label{display:flex;align-items:center;gap:6px}
     <label><input type="checkbox" id="speak" checked> 음성으로 듣기</label>
     <label><input type="checkbox" id="auto" checked> 자동 안내</label>
     <label>페르소나
-      <select id="persona"><option value="historian">역사학자</option><option value="funny">유머러스</option><option value="kid">아이용</option></select>
+      <select id="persona"><option value="historian">역사학자</option><option value="funny">유머러스</option><option value="kid">아이용</option><option value="storyteller">이야기꾼</option><option value="insider">현지 고수</option></select>
     </label>
   </div>
+</div>
+
+<div class="card">
+  <b>AI 해설 엔진</b> <span class="muted">— 무료 키를 넣으면 페르소나가 실제로 달라집니다</span>
+  <div class="row">
+    <select id="prov"><option value="">없음 (고정 템플릿)</option><option value="groq">Groq (무료)</option><option value="openrouter">OpenRouter (무료 모델)</option><option value="gemini">Gemini (무료 티어)</option></select>
+    <input type="text" id="model" placeholder="모델 (비우면 기본값)">
+  </div>
+  <div class="row"><input type="password" id="key" placeholder="API 키 붙여넣기" autocomplete="off" style="flex:3 1 200px;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg)"><button id="saveKey">저장</button></div>
+  <div class="muted">키는 이 브라우저에서 해당 서비스로만 전송되고 저장은 이 기기에만 됩니다. 테스트용 무료 키를 쓰고, 공용 PC에서는 저장하지 마세요. Groq 키: console.groq.com · Gemini 키: aistudio.google.com</div>
 </div>
 
 <div class="card"><b>대화 기록</b><div id="log"></div></div>
@@ -97,28 +107,88 @@ function nearby(){
   }).filter(p=>p.distance_m<=S.radius).sort((a,b)=>a.distance_m-b.distance_m);
 }
 
-// ---------- 로컬 질의 응답 (서버 mock 과 동일 규칙) ----------
-function localAsk(question, placeId){
+// ---------- 페르소나 (backend/app/narrator.py 와 동일, 테스트로 id 일치 검증) ----------
+const PERSONAS = {
+ historian:{label:'역사학자', style:'차분하고 박식한 역사학자. 연도·인물·인과관계를 짚어 \'왜 여기에 이게 있는지\'를 설명하고, 고대와 현재를 잇는 한 줄 통찰로 마무리한다. 존댓말, 과장 금지.',
+   open:'', close:' 지금 눈앞의 이 풍경에 오랜 시간이 겹겹이 쌓여 있는 셈이죠.'},
+ funny:{label:'유머러스', style:'입담 좋은 현지 친구 같은 가이드. 첫 문장은 시선을 끄는 농담이나 과장된 비유로 시작하고, 역사 사실은 요즘 일상(주차, 맛집 줄, 층간소음, 인스타 등)에 빗대 웃기게 풀어준다. 비웃음이나 혐오 농담은 금지, 가벼운 자기비하와 반전 위주. 반말 섞인 친근한 존댓말.',
+   open:'자, 여기서 폰 꺼내시죠, 인증샷 각입니다! ', close:' 예나 지금이나 사람들이 몰리는 자리인 건 변함이 없네요.'},
+ kid:{label:'아이용', style:'초등학생에게 설명하는 다정한 선생님. 어려운 단어는 쉬운 비유로 바꾸고, 마지막에 \'찾아볼까?\' 같은 작은 관찰 퀴즈를 하나 낸다. 무서운 내용은 순화한다.',
+   open:'친구야, 잘 들어봐! ', close:' 그럼 퀴즈! 지금 보이는 것 중에 제일 오래돼 보이는 돌을 찾아볼까?'},
+ storyteller:{label:'이야기꾼', style:'라디오 드라마 내레이터. 장면을 상상하게 만드는 현장 묘사로 시작(\'지금 눈을 감고 상상해 보세요…\')하고, 한 인물의 시점으로 사건을 짧은 이야기처럼 들려준다. 단, 근거에 없는 대사나 사건은 지어내지 말고 \'전해집니다\'로 표시한다.',
+   open:'잠깐 눈을 감고 상상해 보세요. 함성과 먼지, 그리고 뜨거운 햇살… ', close:' 그날의 이야기는 지금도 이 돌벽 어딘가에 남아 있다고들 하죠.'},
+ insider:{label:'현지 고수', style:'그 동네 10년 산 고수. 관광객이 놓치기 쉬운 포인트(보는 각도, 시간대, 줄 피하는 법)를 귀띔하듯 알려준다. 확실하지 않은 영업시간·가격은 절대 단정하지 말고 \'확인해 보세요\'라고 한다.',
+   open:'이건 아는 사람만 아는 건데요, ', close:' 운영 시간이나 입장 방법은 가기 전에 꼭 확인해 보세요.'},
+};
+
+function buildPrompt(p, question, neighbors){
+  const near = neighbors.map(n=>`${n.name}(${DIR[n.direction]} ${n.distance_m}m)`).join(', ')||'없음';
+  return `당신은 걸으면서 이어폰으로 듣는 오디오 가이드입니다.
+[페르소나] ${PERSONAS[$('persona').value].style}
+규칙:
+- 한국어로, 구어체로, 4~6문장(약 20초 분량). 목록·마크다운·이모지 금지.
+- 페르소나는 '말투와 재미'에만 적용한다. 사실(연도·수치·인물)은 아래 [근거]에 있는 것만 쓰고, 없으면 지어내지 말고 모른다고 말할 것.
+- 마지막 문장은 가까이에 있는 볼거리를 한 가지 방향과 함께 안내(예: "왼쪽 골목 안쪽에는 ...가 있어요").
+[장소] ${p.name} (사용자 기준 ${DIR[p.direction]}, ${p.distance_m}m)
+[근거] ${p.summary||'제공된 정보 없음'}
+[주변] ${near}
+[사용자 질문] ${question||'이 장소에 대해 알려줘'}`;
+}
+
+const LLM = {
+  groq:{url:'https://api.groq.com/openai/v1/chat/completions', model:'llama-3.3-70b-versatile'},
+  openrouter:{url:'https://openrouter.ai/api/v1/chat/completions', model:'meta-llama/llama-3.3-70b-instruct:free'},
+  gemini:{model:'gemini-2.5-flash'},
+};
+async function callLLM(prompt){
+  const prov=$('prov').value, key=$('key').value.trim(), model=$('model').value.trim()||LLM[prov].model;
+  const sig=AbortSignal.timeout(20000);
+  if(prov==='gemini'){
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal:sig,
+      headers:{'Content-Type':'application/json','x-goog-api-key':key},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.8,maxOutputTokens:500}})});
+    if(!r.ok) throw new Error('Gemini '+r.status);
+    return (await r.json()).candidates[0].content.parts.map(p=>p.text||'').join('').trim();
+  }
+  const r=await fetch(LLM[prov].url,{method:'POST',signal:sig,headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
+    body:JSON.stringify({model,temperature:.8,max_tokens:500,messages:[{role:'user',content:prompt}]})});
+  if(!r.ok) throw new Error(prov+' '+r.status);
+  return (await r.json()).choices[0].message.content.trim();
+}
+const llmReady=()=>$('prov').value && $('key').value.trim();
+
+// ---------- 로컬 대상 선택 + 템플릿 ----------
+function pickLocal(question, placeId){
   const ps = nearby();
   if(!ps.length) return {text:'근처에서 설명할 만한 장소를 찾지 못했어요. 조금 더 걸어 보세요.'};
   const d = dirFromText(question);
   const targets = placeId ? ps.filter(p=>p.id===placeId) : d ? ps.filter(p=>p.direction===d) : [...ps].sort((a,b)=>(a.direction!=='front')-(b.direction!=='front')||a.distance_m-b.distance_m);
   if(!targets.length) return {text:`${DIR[d]}에는 눈에 띄는 장소가 없어요.`};
-  const p = targets[0], n = ps.find(x=>x.id!==p.id);
-  const tone = {historian:'', funny:'자, 여기서 잠깐! ', kid:'친구야, 잘 들어봐! '}[$('persona').value];
+  const place=targets[0];
+  return {place, neighbors:ps.filter(x=>x.id!==place.id).slice(0,3)};
+}
+function templateText(p, neighbors){
+  const P=PERSONAS[$('persona').value], n=neighbors[0];
   const tip = n ? ` 근처 ${DIR[n.direction]}에는 ${n.name}도 있어요.` : '';
-  return {text:`${tone}${DIR[p.direction]} ${p.distance_m}미터 앞에 보이는 곳은 ${p.name}입니다. ${p.summary}${tip}`, place:p};
+  return `${P.open}${DIR[p.direction]} ${p.distance_m}미터 앞에 보이는 곳은 ${p.name}입니다. ${p.summary}${tip}${P.close}`;
 }
 
 async function ask(question, auto=false, placeId=null){
   log(auto?'s':'u', (auto?'🔔 자동 안내: ':'🙋 ')+question);
-  let a;
-  try{
-    const r = await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(4000),
-      body:JSON.stringify({lat:S.lat,lng:S.lng,heading:S.heading,radius_m:S.radius,question,persona:$('persona').value,place_id:placeId})});
-    if(!r.ok) throw 0; a = await r.json(); setMode(true);
-  }catch{ a = localAsk(question, placeId); setMode(false); }
-  log('a','🎧 '+a.text); say(a.text); draw();
+  let text, engine;
+  if(llmReady()){
+    const t=pickLocal(question, placeId);
+    if(!t.place){ text=t.text; engine='로컬'; }
+    else try{ text=await callLLM(buildPrompt(t.place,question,t.neighbors)); engine=$('prov').value; setMode(false); }
+    catch(e){ log('s','⚠️ AI 호출 실패('+e.message+') → 템플릿으로 대신 답합니다. 키·모델·네트워크를 확인하세요.'); text=templateText(t.place,t.neighbors); engine='템플릿'; }
+  } else {
+    try{
+      const r = await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(4000),
+        body:JSON.stringify({lat:S.lat,lng:S.lng,heading:S.heading,radius_m:S.radius,question,persona:$('persona').value,place_id:placeId})});
+      if(!r.ok) throw 0; text=(await r.json()).text; engine='서버'; setMode(true);
+    }catch{ const t=pickLocal(question,placeId); text=t.place?templateText(t.place,t.neighbors):t.text; engine='템플릿'; setMode(false); }
+  }
+  log('a',`🎧 [${PERSONAS[$('persona').value].label} · ${engine}] `+text); say(text); draw();
 }
 function setMode(b){ S.backend=b; $('mode').textContent=b?'서버 연결됨 (/api/ask)':'로컬 모드'; }
 
@@ -186,6 +256,9 @@ $('mic').onclick=()=>{
   const r=new SR(); r.lang='ko-KR'; r.onresult=e=>ask(e.results[0][0].transcript); r.start();
 };
 addEventListener('keydown',e=>{ const k={ArrowUp:()=>move(20),ArrowDown:()=>move(-20),ArrowLeft:()=>turn(-45),ArrowRight:()=>turn(45)}[e.key]; if(k){e.preventDefault();k();} });
+const store={get:k=>{try{return localStorage.getItem(k)||''}catch{return ''}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}}};
+$('prov').value=store.get('wg_prov'); $('model').value=store.get('wg_model'); $('key').value=store.get('wg_key');
+$('saveKey').onclick=()=>{ store.set('wg_prov',$('prov').value); store.set('wg_model',$('model').value); store.set('wg_key',$('key').value); log('s',llmReady()?'AI 엔진 설정을 저장했어요. 이제 질문하면 '+$('prov').value+'가 답합니다.':'엔진 없음으로 저장했어요.'); };
 draw();
 log('s','시작: 콜로세움 서쪽에서 동쪽(90°)을 보고 서 있습니다. "앞에 있는 건물 뭐야?"를 눌러 보세요.');
 </script>
