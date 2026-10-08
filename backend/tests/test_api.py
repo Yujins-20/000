@@ -34,3 +34,10 @@ def test_ask_empty_direction():
 
 def test_validation():
     assert c.post("/api/nearby", json={"lat": 200, "lng": 0}).status_code == 422
+
+
+def test_ask_with_explicit_place_id_overrides_direction_pick():
+    base = {**ME, "heading": 90, "question": "정면에 있는 곳 설명해줘"}
+    nearest = c.post("/api/ask", json=base).json()["place"]["id"]
+    other = next(p["id"] for p in c.post("/api/nearby", json={**ME, "heading": 90}).json() if p["id"] != nearest)
+    assert c.post("/api/ask", json={**base, "place_id": other}).json()["place"]["id"] == other

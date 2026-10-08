@@ -24,6 +24,7 @@ class AskRequest(Location):
     question: str = ""
     lang: str = "ko"
     persona: str = "historian"   # historian | funny | kid
+    place_id: str | None = None  # 자동 안내처럼 대상이 이미 정해진 경우
 
 
 class Answer(BaseModel):

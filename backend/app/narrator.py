@@ -38,8 +38,28 @@ def mock_text(place: Place, question: str, neighbors: list[Place], lang: str) ->
     return f"{where} {int(place.distance_m)}미터 앞에 보이는 곳은 {place.name}입니다. {place.summary}{tip}"
 
 
+def resolve_provider() -> str:
+    p = config.LLM_PROVIDER
+    if p == "auto":
+        return "gemini" if config.GEMINI_API_KEY else "mock"
+    return p
+
+
+async def narrate_openai_compat(provider: str, prompt: str) -> str:
+    url, default_model = config.OPENAI_COMPAT[provider]
+    body = {"model": config.LLM_MODEL or default_model, "temperature": 0.7, "max_tokens": 400,
+            "messages": [{"role": "user", "content": prompt}]}
+    async with httpx.AsyncClient(timeout=20) as c:
+        r = await c.post(url, json=body, headers={"Authorization": f"Bearer {config.LLM_API_KEY}"})
+        r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"].strip()
+
+
 async def narrate(place: Place, question: str, lang: str, persona: str, neighbors: list[Place]) -> str:
-    if not config.GEMINI_API_KEY:
+    provider = resolve_provider()
+    if provider in config.OPENAI_COMPAT:
+        return await narrate_openai_compat(provider, build_prompt(place, question, lang, persona, neighbors))
+    if provider != "gemini":
         return mock_text(place, question, neighbors, lang)
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent"
     body = {"contents": [{"parts": [{"text": build_prompt(place, question, lang, persona, neighbors)}]}],

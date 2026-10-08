@@ -64,5 +64,36 @@ class GooglePlaces:
         return annotate(places, loc)
 
 
+class WikipediaPlaces:
+    """무료·키 불필요. 위키백과 GeoSearch로 '이야깃거리가 있는' 랜드마크만 가져오고 요약문을 근거로 쓴다."""
+
+    async def nearby(self, loc: Location) -> list[Place]:
+        params = {
+            "action": "query", "format": "json", "generator": "geosearch",
+            "ggscoord": f"{loc.lat}|{loc.lng}", "ggsradius": max(10, min(loc.radius_m, 10000)),
+            "ggslimit": 20, "prop": "coordinates|extracts", "exintro": 1, "explaintext": 1,
+            "exsentences": 3, "exlimit": "max", "colimit": "max",
+        }
+        url = f"https://{config.WIKI_LANG}.wikipedia.org/w/api.php"
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "WalkGuide/0.1 (prototype)"}) as c:
+            r = await c.get(url, params=params)
+            r.raise_for_status()
+        return annotate(parse_wikipedia(r.json()), loc)
+
+
+def parse_wikipedia(data: dict) -> list[Place]:
+    out = []
+    for pg in data.get("query", {}).get("pages", {}).values():
+        co = (pg.get("coordinates") or [None])[0]
+        if not co:
+            continue
+        out.append(Place(id=f"wiki:{pg['pageid']}", name=pg["title"], lat=co["lat"], lng=co["lon"],
+                         types=["wikipedia"], summary=pg.get("extract", "").strip()))
+    return out
+
+
 def get_provider():
-    return GooglePlaces() if config.GOOGLE_MAPS_API_KEY else MockPlaces()
+    kind = config.PLACES_PROVIDER
+    if kind == "auto":
+        kind = "google" if config.GOOGLE_MAPS_API_KEY else "mock"
+    return {"google": GooglePlaces, "wikipedia": WikipediaPlaces}.get(kind, MockPlaces)()

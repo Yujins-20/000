@@ -37,14 +37,14 @@ async def ask(req: AskRequest):
     if not places:
         return Answer(text="근처에서 설명할 만한 장소를 찾지 못했어요. 조금 더 걸어 보세요." if req.lang == "ko"
                       else "I couldn't find anything notable nearby. Try walking a bit further.")
-    targets = pick_target(places, req.question)
+    targets = [p for p in places if p.id == req.place_id] if req.place_id else pick_target(places, req.question)
     if not targets:
         return Answer(text="그 방향에는 눈에 띄는 장소가 없어요." if req.lang == "ko"
                       else "There's nothing notable in that direction.", candidates=places[:3])
     place = targets[0]
     neighbors = [p for p in places if p.id != place.id][:3]
     # 일반 해설(질문 없음/방향 질문)만 캐시. 방향 정보가 문장에 들어가므로 방향도 키에 포함.
-    generic = direction_from_text(req.question) is not None or not req.question.strip()
+    generic = bool(req.place_id) or direction_from_text(req.question) is not None or not req.question.strip()
     key = (place.id, place.direction, req.lang, req.persona) if generic else None
     text = cache.get(key) if key else None
     if text is None:

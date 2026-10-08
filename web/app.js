@@ -20,12 +20,12 @@ async function post(url, body){
   return r.json();
 }
 
-async function ask(question){
+async function ask(question, placeId=null){
   if(!state.pos){ setStatus('아직 위치를 못 잡았어요.'); return; }
   if(state.busy) return;
   state.busy = true;
   try{
-    const a = await post('/api/ask', payload({question}));
+    const a = await post('/api/ask', payload({question, place_id:placeId}));
     $('answer').textContent = a.text;
     say(a.text);
   }catch(e){ setStatus('오류: '+e.message); }
@@ -41,7 +41,7 @@ async function refreshNearby(){
     const fresh = ps.find(p=>p.distance_m<80 && !state.spoken.has(p.id));
     if(fresh && !state.busy && !speechSynthesis.speaking){
       state.spoken.add(fresh.id);
-      ask(`${DIR[fresh.direction]}에 있는 ${fresh.name} 설명해줘`);
+      ask(`${DIR[fresh.direction]}에 있는 ${fresh.name} 설명해줘`, fresh.id);
     }
   }catch(e){ setStatus('오류: '+e.message); }
 }

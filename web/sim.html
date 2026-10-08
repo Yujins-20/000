@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>워크가이드 시뮬레이터</title>
+<style>
+:root{--bg:#f6f4ef;--fg:#1b2a41;--card:#fff;--accent:#c1440e;--muted:#6b7280;--line:#d8d3c8}
+@media (prefers-color-scheme:dark){:root{--bg:#10151d;--fg:#eef0f3;--card:#1b2431;--muted:#9aa4b2;--line:#34404f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding:12px 16px;max-width:760px;margin-inline:auto}
+h1{font-size:1.2rem;margin:.2em 0}
+.card{background:var(--card);border-radius:14px;padding:12px;margin:10px 0}
+canvas{width:100%;height:auto;aspect-ratio:1/1;border-radius:12px;background:var(--card);touch-action:none;display:block}
+button{font:inherit;border:0;border-radius:10px;padding:10px 12px;background:var(--accent);color:#fff;cursor:pointer}
+button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.row>*{flex:1 1 auto}
+input[type=text]{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);flex:3 1 200px;min-width:0}
+.muted{color:var(--muted);font-size:.88rem}
+#log{max-height:260px;overflow:auto}
+.msg{padding:8px 10px;border-radius:10px;margin:6px 0;background:var(--bg)}
+.msg.u{border-left:3px solid var(--muted)}.msg.a{border-left:3px solid var(--accent)}.msg.s{border-left:3px solid #2f855a}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;background:var(--bg);font-size:.8rem;color:var(--muted)}
+label{display:flex;align-items:center;gap:6px}
+</style>
+</head>
+<body>
+<h1>🎧 워크가이드 시뮬레이터 <span class="pill" id="mode">로컬 모드</span></h1>
+<p class="muted">로마 콜로세움 일대. 지도를 <b>탭하면 그 위치로 순간이동</b>, 아래 버튼이나 키보드(↑↓ 걷기, ←→ 회전)로 걸으며 질문해 보세요. 80m 안으로 처음 들어오면 가이드가 먼저 말합니다.</p>
+
+<canvas id="map" width="720" height="720"></canvas>
+
+<div class="card">
+  <div class="row">
+    <button class="sec" id="tl">⟲ 왼쪽 45°</button>
+    <button id="fw">▲ 앞으로 20m</button>
+    <button class="sec" id="bk">▼ 뒤로 20m</button>
+    <button class="sec" id="tr">오른쪽 45° ⟳</button>
+  </div>
+  <div class="muted" id="state"></div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <button class="sec" data-q="앞에 있는 건물 뭐야?">앞 뭐야?</button>
+    <button class="sec" data-q="왼쪽에 뭐 있어?">왼쪽 뭐야?</button>
+    <button class="sec" data-q="오른쪽 건물 뭐야?">오른쪽 뭐야?</button>
+    <button class="sec" data-q="뒤에 뭐 있어?">뒤 뭐야?</button>
+  </div>
+  <div class="row">
+    <input type="text" id="q" placeholder="직접 질문: 저 성당은 뭐야?">
+    <button id="ask">질문</button>
+    <button class="sec" id="mic">🎤</button>
+  </div>
+  <div class="row muted">
+    <label><input type="checkbox" id="speak" checked> 음성으로 듣기</label>
+    <label><input type="checkbox" id="auto" checked> 자동 안내</label>
+    <label>페르소나
+      <select id="persona"><option value="historian">역사학자</option><option value="funny">유머러스</option><option value="kid">아이용</option></select>
+    </label>
+  </div>
+</div>
+
+<div class="card"><b>대화 기록</b><div id="log"></div></div>
+
+<script>
+// ---------- 지리 계산 (backend/app/geo.py 와 동일 로직) ----------
+const R = 6371000, rad = d => d*Math.PI/180, deg = r => r*180/Math.PI;
+const dist = (a,b,c,d) => { const p1=rad(a),p2=rad(c),dp=p2-p1,dl=rad(d-b);
+  const x=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2; return 2*R*Math.asin(Math.sqrt(x)); };
+const bearing = (a,b,c,d) => { const p1=rad(a),p2=rad(c),dl=rad(d-b);
+  return (deg(Math.atan2(Math.sin(dl)*Math.cos(p2), Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl)))+360)%360; };
+const relAngle = (b,h) => ((b-h+180)%360+360)%360-180;
+const dirOf = r => Math.abs(r)<=45?'front':Math.abs(r)>=135?'back':r>0?'right':'left';
+const DIR = {front:'정면', right:'오른쪽', back:'뒤쪽', left:'왼쪽'};
+const KW = {left:['왼쪽','왼편','좌측','left'], right:['오른쪽','오른편','우측','right'], back:['뒤','behind','back'], front:['앞','정면','맞은편','ahead','front']};
+const dirFromText = t => { t=t.toLowerCase(); for(const d of ['left','right','back','front']) if(KW[d].some(k=>t.includes(k))) return d; return null; };
+
+const PLACES = [
+ {id:'colosseum',name:'콜로세움',lat:41.89021,lng:12.49223,summary:'서기 80년경 완공된 로마 최대의 원형 경기장입니다. 약 5만 명을 수용했고 검투사 경기가 열렸어요.'},
+ {id:'arch_constantine',name:'콘스탄티누스 개선문',lat:41.88981,lng:12.49055,summary:'315년 밀비우스 다리 전투의 승리를 기념해 세운 개선문으로, 로마에 남은 개선문 중 가장 큽니다.'},
+ {id:'forum',name:'포로 로마노',lat:41.89246,lng:12.48531,summary:'고대 로마의 정치·종교·상업 중심지였던 광장 유적입니다.'},
+ {id:'san_clemente',name:'산 클레멘테 대성당',lat:41.88897,lng:12.49794,summary:'12세기 성당 아래 4세기 성당, 그 아래 미트라 신전이 겹쳐 있는 3층 구조의 성당이에요.'},
+ {id:'palatine',name:'팔라티노 언덕',lat:41.88970,lng:12.48750,summary:'로마 건국 전설의 무대이자 황제들의 궁전이 있던 언덕입니다.'},
+ {id:'meta_sudans',name:'메타 수단스 터',lat:41.88983,lng:12.49113,summary:'콜로세움 옆에 있던 원뿔형 분수의 터입니다. 검투사들이 경기 후 씻던 곳이라는 이야기가 전해지지만 확실하진 않아요.'},
+];
+
+// ---------- 상태 ----------
+const S = {lat:41.8896, lng:12.4895, heading:90, spoken:new Set(), radius:300, backend:false};
+const ORIGIN = {lat:41.8896, lng:12.4905};
+const $ = id => document.getElementById(id);
+
+function nearby(){
+  return PLACES.map(p=>{
+    const d=dist(S.lat,S.lng,p.lat,p.lng), b=bearing(S.lat,S.lng,p.lat,p.lng);
+    return {...p, distance_m:Math.round(d), bearing:Math.round(b), direction:dirOf(relAngle(b,S.heading))};
+  }).filter(p=>p.distance_m<=S.radius).sort((a,b)=>a.distance_m-b.distance_m);
+}
+
+// ---------- 로컬 질의 응답 (서버 mock 과 동일 규칙) ----------
+function localAsk(question, placeId){
+  const ps = nearby();
+  if(!ps.length) return {text:'근처에서 설명할 만한 장소를 찾지 못했어요. 조금 더 걸어 보세요.'};
+  const d = dirFromText(question);
+  const targets = placeId ? ps.filter(p=>p.id===placeId) : d ? ps.filter(p=>p.direction===d) : [...ps].sort((a,b)=>(a.direction!=='front')-(b.direction!=='front')||a.distance_m-b.distance_m);
+  if(!targets.length) return {text:`${DIR[d]}에는 눈에 띄는 장소가 없어요.`};
+  const p = targets[0], n = ps.find(x=>x.id!==p.id);
+  const tone = {historian:'', funny:'자, 여기서 잠깐! ', kid:'친구야, 잘 들어봐! '}[$('persona').value];
+  const tip = n ? ` 근처 ${DIR[n.direction]}에는 ${n.name}도 있어요.` : '';
+  return {text:`${tone}${DIR[p.direction]} ${p.distance_m}미터 앞에 보이는 곳은 ${p.name}입니다. ${p.summary}${tip}`, place:p};
+}
+
+async function ask(question, auto=false, placeId=null){
+  log(auto?'s':'u', (auto?'🔔 자동 안내: ':'🙋 ')+question);
+  let a;
+  try{
+    const r = await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(4000),
+      body:JSON.stringify({lat:S.lat,lng:S.lng,heading:S.heading,radius_m:S.radius,question,persona:$('persona').value,place_id:placeId})});
+    if(!r.ok) throw 0; a = await r.json(); setMode(true);
+  }catch{ a = localAsk(question, placeId); setMode(false); }
+  log('a','🎧 '+a.text); say(a.text); draw();
+}
+function setMode(b){ S.backend=b; $('mode').textContent=b?'서버 연결됨 (/api/ask)':'로컬 모드'; }
+
+function say(t){
+  if(!$('speak').checked || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='ko-KR'; speechSynthesis.speak(u);
+}
+function log(cls,t){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=t; $('log').prepend(d); }
+
+// ---------- 이동/자동 안내 ----------
+function move(m){ // heading 방향으로 m 미터
+  const h=rad(S.heading);
+  S.lat += (m*Math.cos(h))/111320; S.lng += (m*Math.sin(h))/(111320*Math.cos(rad(S.lat)));
+  afterMove();
+}
+function turn(a){ S.heading=(S.heading+a+360)%360; afterMove(); }
+function afterMove(){
+  draw();
+  if(!$('auto').checked) return;
+  const fresh = nearby().find(p=>p.distance_m<80 && !S.spoken.has(p.id));
+  if(fresh){ S.spoken.add(fresh.id); ask(`${DIR[fresh.direction]}에 있는 ${fresh.name} 설명해줘`, true, fresh.id); }
+}
+
+// ---------- 지도 그리기 ----------
+const cv=$('map'), ctx=cv.getContext('2d'), SCALE=cv.width/900; // 900m 폭
+const toXY=(lat,lng)=>({x:cv.width/2+(lng-ORIGIN.lng)*111320*Math.cos(rad(ORIGIN.lat))*SCALE, y:cv.height/2-(lat-ORIGIN.lat)*111320*SCALE});
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const me=toXY(S.lat,S.lng);
+  ctx.strokeStyle=css('--line'); ctx.lineWidth=1;
+  for(const r of [80,S.radius]){ ctx.setLineDash(r===80?[4,6]:[]); ctx.beginPath(); ctx.arc(me.x,me.y,r*SCALE,0,7); ctx.stroke(); }
+  ctx.setLineDash([]);
+  // 4방향 섹터(정면 ±45°) 표시
+  const h=rad(S.heading-90);
+  ctx.fillStyle='rgba(193,68,14,.12)'; ctx.beginPath(); ctx.moveTo(me.x,me.y);
+  ctx.arc(me.x,me.y,S.radius*SCALE,h-Math.PI/4,h+Math.PI/4); ctx.fill();
+  ctx.font='bold 20px system-ui'; ctx.textAlign='center'; ctx.lineJoin='round'; ctx.lineWidth=5;
+  const near=nearby(), ids=new Set(near.map(n=>n.id));
+  for(const p of PLACES){
+    const q=toXY(p.lat,p.lng), n=near.find(x=>x.id===p.id), out=!ids.has(p.id);
+    ctx.fillStyle=out?css('--muted'):css('--accent'); ctx.beginPath(); ctx.arc(q.x,q.y,8,0,7); ctx.fill();
+    const label=p.name+(n?` ${n.distance_m}m`:''), lx=Math.min(Math.max(q.x,110),cv.width-110), ly=q.y+(p.id==='meta_sudans'?28:-14);
+    ctx.strokeStyle=css('--card'); ctx.strokeText(label,lx,ly); ctx.fillStyle=out?css('--muted'):css('--fg'); ctx.fillText(label,lx,ly);
+  }
+  // 나(삼각형, heading 방향)
+  ctx.save(); ctx.translate(me.x,me.y); ctx.rotate(rad(S.heading)); ctx.fillStyle='#2b6cb0';
+  ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(11,12); ctx.lineTo(-11,12); ctx.closePath(); ctx.fill(); ctx.restore();
+  $('state').textContent=`방향 ${Math.round(S.heading)}° (북=0°, 동=90°) · 주변: `+(near.map(n=>`${DIR[n.direction]} ${n.name}`).join(', ')||'없음');
+}
+cv.addEventListener('click',e=>{
+  const r=cv.getBoundingClientRect(), x=(e.clientX-r.left)*cv.width/r.width, y=(e.clientY-r.top)*cv.height/r.height;
+  S.lng=ORIGIN.lng+(x-cv.width/2)/SCALE/(111320*Math.cos(rad(ORIGIN.lat))); S.lat=ORIGIN.lat-(y-cv.height/2)/SCALE/111320; afterMove();
+});
+
+// ---------- UI ----------
+$('fw').onclick=()=>move(20); $('bk').onclick=()=>move(-20);
+$('tl').onclick=()=>turn(-45); $('tr').onclick=()=>turn(45);
+document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>ask(b.dataset.q));
+$('ask').onclick=()=>{ const v=$('q').value.trim(); if(v){ ask(v); $('q').value=''; } };
+$('q').addEventListener('keydown',e=>{ if(e.key==='Enter') $('ask').click(); e.stopPropagation(); });
+$('mic').onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR) return log('s','이 브라우저는 음성 인식을 지원하지 않아요. 입력창을 쓰세요.');
+  const r=new SR(); r.lang='ko-KR'; r.onresult=e=>ask(e.results[0][0].transcript); r.start();
+};
+addEventListener('keydown',e=>{ const k={ArrowUp:()=>move(20),ArrowDown:()=>move(-20),ArrowLeft:()=>turn(-45),ArrowRight:()=>turn(45)}[e.key]; if(k){e.preventDefault();k();} });
+draw();
+log('s','시작: 콜로세움 서쪽에서 동쪽(90°)을 보고 서 있습니다. "앞에 있는 건물 뭐야?"를 눌러 보세요.');
+</script>
+</body>
+</html>
