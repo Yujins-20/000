@@ -14,6 +14,9 @@ uvicorn app.main:app --reload --host 0.0.0.0
 ## 시뮬레이션 (GPS 없이 테스트)
 서버 실행 후 `http://localhost:8000/sim.html` — 지도에서 걷고 회전하며 "오른쪽 건물 뭐야?"를 시험할 수 있습니다. 서버 없이 파일만 열어도 로컬 모드로 동작합니다.
 
+## 자체 서버 VLM·TTS
+[docs/SERVER_VLM_TTS.md](docs/SERVER_VLM_TTS.md) — `VLM_BASE_URL`/`VLM_API_KEY`(환경변수), 카메라 모드 `/api/look`, 자연스러운 TTS `/api/tts`.
+
 ## 무료 API
 [docs/PLATFORM_AND_FREE_APIS.md](docs/PLATFORM_AND_FREE_APIS.md) 참고 (`PLACES_PROVIDER=wikipedia`, `LLM_PROVIDER=groq|openrouter`).
 

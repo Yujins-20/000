@@ -1,7 +1,7 @@
 """해설 생성. GEMINI_API_KEY가 있으면 Gemini, 없으면 템플릿 기반 mock."""
 import httpx
 
-from . import config
+from . import config, vlm
 from .geo import DIRECTION_EN, DIRECTION_KO
 from .models import Place
 
@@ -69,6 +69,8 @@ def mock_text(place: Place, question: str, neighbors: list[Place], lang: str) ->
 def resolve_provider() -> str:
     p = config.LLM_PROVIDER
     if p == "auto":
+        if vlm.configured():
+            return "vlm"
         return "gemini" if config.GEMINI_API_KEY else "mock"
     return p
 
@@ -87,6 +89,9 @@ async def narrate(place: Place, question: str, lang: str, persona: str, neighbor
     provider = resolve_provider()
     if provider in config.OPENAI_COMPAT:
         return await narrate_openai_compat(provider, build_prompt(place, question, lang, persona, neighbors))
+    if provider == "vlm":
+        return await vlm.chat([{"role": "user", "content": build_prompt(place, question, lang, persona, neighbors)}],
+                              max_tokens=400)
     if provider != "gemini":
         return mock_text(place, question, neighbors, lang)
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent"

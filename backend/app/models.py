@@ -31,3 +31,14 @@ class Answer(BaseModel):
     text: str
     place: Place | None = None
     candidates: list[Place] = []
+
+
+class LookRequest(Location):
+    image: str                    # data:image/jpeg;base64,...
+    question: str = ""
+    persona: str = "historian"
+
+
+class TtsRequest(BaseModel):
+    text: str
+    persona: str = "historian"

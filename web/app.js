@@ -2,12 +2,7 @@ const $ = id => document.getElementById(id);
 const DIR = {front:'정면', right:'오른쪽', back:'뒤쪽', left:'왼쪽'};
 const state = {pos:null, heading:null, spoken:new Set(), busy:false, watching:false};
 
-function say(text){
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = $('lang').value === 'en' ? 'en-US' : 'ko-KR';
-  speechSynthesis.speak(u);
-}
+function say(text){ Voice.speak(text, {persona: $('persona').value, lang: $('lang').value}); }
 function setStatus(t){ $('status').textContent = t; }
 
 function payload(extra={}){
@@ -39,7 +34,7 @@ async function refreshNearby(){
     $('list').innerHTML = ps.map(p=>`<li>${DIR[p.direction]} ${p.distance_m}m · ${p.name}</li>`).join('') || '<li>없음</li>';
     // 자동 안내: 처음 진입한 가까운(<80m) 장소를 먼저 말해줌
     const fresh = ps.find(p=>p.distance_m<80 && !state.spoken.has(p.id));
-    if(fresh && !state.busy && !speechSynthesis.speaking){
+    if(fresh && !state.busy && !(window.speechSynthesis && speechSynthesis.speaking)){
       state.spoken.add(fresh.id);
       ask(`${DIR[fresh.direction]}에 있는 ${fresh.name} 설명해줘`, fresh.id);
     }
@@ -67,6 +62,28 @@ async function start(){
   say('안내를 시작합니다.');
 }
 
+// 카메라 모드: 사진을 1024px로 줄여 /api/look 으로 보내고, "지금 보는 이게 뭐야?"에 답한다.
+function shrink(file, max=1024){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = img.width*k; c.height = img.height*k;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      res(c.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = rej; img.src = URL.createObjectURL(file);
+  });
+}
+async function look(file){
+  if(!state.pos){ setStatus('아직 위치를 못 잡았어요.'); return; }
+  setStatus('사진을 보고 있어요…');
+  try{
+    const a = await post('/api/look', payload({image: await shrink(file), question: $('q').value}));
+    $('answer').textContent = a.text; say(a.text); setStatus('완료');
+  }catch(e){ setStatus(e.message==='503' ? '서버에 VLM이 설정되지 않았어요.' : '사진 분석 오류: '+e.message); }
+}
+
 function listen(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){ setStatus('이 브라우저는 음성 인식을 지원하지 않아요. 입력창을 쓰세요.'); return; }
@@ -79,5 +96,6 @@ function listen(){
 
 $('start').onclick = start;
 $('mic').onclick = listen;
+$('cam').onchange = e => e.target.files[0] && look(e.target.files[0]);
 $('send').onclick = () => $('q').value && ask($('q').value);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});

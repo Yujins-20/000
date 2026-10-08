@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import narrator
+from . import narrator, tts, vision
 from .cache import TTLCache
 from .geo import direction_from_text
-from .models import Answer, AskRequest, Location, Place
+from .models import Answer, AskRequest, LookRequest, Location, Place, TtsRequest
 from .places import get_provider
 
 app = FastAPI(title="WalkGuide")
@@ -55,6 +55,36 @@ async def ask(req: AskRequest):
         if key:
             cache.set(key, text)
     return Answer(text=text, place=place, candidates=targets[:3])
+
+
+@app.post("/api/look", response_model=Answer)
+async def look(req: LookRequest):
+    """카메라 모드: 사진 + 위치/방향 → 무엇을 보고 있는지 특정하고 해설."""
+    from . import vlm
+    if not vlm.configured():
+        raise HTTPException(503, "VLM not configured (set VLM_BASE_URL and VLM_API_KEY)")
+    places = await get_provider().nearby(req)
+    try:
+        text = await vision.look(req.image, places[:5], req.question, req.persona)
+    except vision.BadImage as e:
+        raise HTTPException(422, str(e)) from e
+    except Exception as e:
+        raise HTTPException(502, f"vision failed: {type(e).__name__}") from e
+    return Answer(text=text, candidates=places[:3])
+
+
+@app.post("/api/tts")
+async def tts_endpoint(req: TtsRequest):
+    """텍스트 → 음성. 미설정이면 501 → 클라이언트가 브라우저 TTS로 폴백."""
+    if not tts.configured():
+        raise HTTPException(501, "TTS not configured")
+    if not req.text.strip() or len(req.text) > 600:
+        raise HTTPException(422, "text must be 1-600 chars")
+    try:
+        audio, mime = await tts.synthesize(req.text, req.persona)
+    except Exception as e:
+        raise HTTPException(502, f"tts failed: {type(e).__name__}") from e
+    return Response(audio, media_type=mime, headers={"Cache-Control": "public, max-age=86400"})
 
 
 # 프런트엔드 정적 서빙 (API 라우트 이후에 마운트)

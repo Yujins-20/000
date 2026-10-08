@@ -30,6 +30,7 @@ li{margin:.3em 0}
 
 <button id="start">▶ 시작 (자동 안내 켜기)</button>
 <button id="mic" class="sec">🎤 말로 질문하기</button>
+<label class="sec" style="display:block;text-align:center;border-radius:12px;padding:14px;margin:6px 0;border:1px solid var(--muted)">📷 사진으로 물어보기<input id="cam" type="file" accept="image/*" capture="environment" hidden></label>
 <div class="row"><input id="q" placeholder="또는 입력: 왼쪽 골목에 뭐 있어?"><button id="send" style="flex:0 0 80px">전송</button></div>
 
 <div class="card"><div id="answer">아직 안내가 없습니다.</div></div>
@@ -40,6 +41,7 @@ li{margin:.3em 0}
 <select id="persona"><option value="historian">역사학자</option><option value="funny">유머러스</option><option value="kid">아이용</option><option value="storyteller">이야기꾼</option><option value="insider">현지 고수</option></select>
 <select id="radius"><option value="100">100m</option><option value="150" selected>150m</option><option value="300">300m</option></select>
 </div>
+<script src="tts.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

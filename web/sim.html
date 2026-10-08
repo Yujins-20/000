@@ -73,6 +73,7 @@ label{display:flex;align-items:center;gap:6px}
 
 <div class="card"><b>대화 기록</b><div id="log"></div></div>
 
+<script src="tts.js"></script>
 <script>
 // ---------- 지리 계산 (backend/app/geo.py 와 동일 로직) ----------
 const R = 6371000, rad = d => d*Math.PI/180, deg = r => r*180/Math.PI;
@@ -193,8 +194,8 @@ async function ask(question, auto=false, placeId=null){
 function setMode(b){ S.backend=b; $('mode').textContent=b?'서버 연결됨 (/api/ask)':'로컬 모드'; }
 
 function say(t){
-  if(!$('speak').checked || !('speechSynthesis' in window)) return;
-  speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='ko-KR'; speechSynthesis.speak(u);
+  if(!$('speak').checked) return Voice.stop();
+  Voice.speak(t,{persona:$('persona').value}); // 서버 TTS가 없으면 자동으로 브라우저 음성
 }
 function log(cls,t){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=t; $('log').prepend(d); }
 
