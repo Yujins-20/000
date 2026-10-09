@@ -3,13 +3,13 @@
 //   Voice.start({persona, lang}) → Voice.push(sentence)* → Voice.end()      (스트리밍)
 //   Voice.say(text, opts)                                                    (한 번에)
 const Voice = (() => {
-  let serverOk = true, sid = 0, cur = null, audio = null;
+  let serverOk = true, sid = 0, cur = null, audio = null, base = '';
   const AHEAD = 2; // 재생 중 미리 합성해 둘 문장 수
   const split = t => (t.match(/[^.!?。…]+[.!?。…]*/g) || [t]).map(s => s.trim()).filter(Boolean);
 
   async function fetchAudio(text, persona) {
     try {
-      const r = await fetch('/api/tts', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      const r = await fetch(base + '/api/tts', {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({text, persona}), signal: AbortSignal.timeout(20000)});
       if (r.status === 501 || r.status === 404) { serverOk = false; return null; } // 이 세션은 서버 TTS 안 씀
       if (!r.ok) return null;
@@ -78,5 +78,7 @@ const Voice = (() => {
   function end() { if (cur) { cur.ended = true; cur.wake && cur.wake(); } }
   function say(text, opts) { start(opts); split(text).forEach(push); end(); }
   const speaking = () => !!cur && !cur.done;
-  return {start, push, end, say, stop, speaking, split};
+  // 서버 주소 지정(다른 도메인에서 열었을 때). 바꾸면 서버 TTS를 다시 시도한다.
+  function setBase(url) { base = (url || '').replace(/\/+$/, ''); serverOk = true; }
+  return {start, push, end, say, stop, speaking, split, setBase};
 })();

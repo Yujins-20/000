@@ -26,8 +26,8 @@ label{display:flex;align-items:center;gap:6px}
 </style>
 </head>
 <body>
-<h1>🎧 워크가이드 시뮬레이터 <span class="pill" id="mode">로컬 모드</span></h1>
-<p class="muted">로마 콜로세움 일대. 지도를 <b>탭하면 그 위치로 순간이동</b>, 아래 버튼이나 키보드(↑↓ 걷기, ←→ 회전)로 걸으며 질문해 보세요. 80m 안으로 처음 들어오면 가이드가 먼저 이야기를 시작하고, 끝나면 <b>이어서 질문</b>("누가 지었어?")할 수 있어요. AI 엔진 키를 넣어야 자유 질문에 답해요.</p>
+<h1>🎧 워크가이드 시뮬레이터 <span class="pill" id="mode">서버 확인 중</span></h1>
+<p class="muted">로마 콜로세움 일대. 지도를 <b>탭하면 그 위치로 순간이동</b>, 아래 버튼이나 키보드(↑↓ 걷기, ←→ 회전)로 걸으며 질문해 보세요. 80m 안으로 처음 들어오면 가이드가 먼저 이야기를 시작하고, 끝나면 <b>이어서 질문</b>("누가 지었어?")할 수 있어요. 서버의 LLM이 답합니다.</p>
 
 <canvas id="map" width="720" height="720"></canvas>
 
@@ -63,13 +63,11 @@ label{display:flex;align-items:center;gap:6px}
 </div>
 
 <div class="card">
-  <b>AI 해설 엔진</b> <span class="muted">— 무료 키를 넣으면 페르소나가 실제로 달라집니다</span>
-  <div class="row">
-    <select id="prov"><option value="">없음 (고정 템플릿)</option><option value="groq">Groq (무료)</option><option value="openrouter">OpenRouter (무료 모델)</option><option value="gemini">Gemini (무료 티어)</option></select>
-    <input type="text" id="model" placeholder="모델 (비우면 기본값)">
-  </div>
-  <div class="row"><input type="password" id="key" placeholder="API 키 붙여넣기" autocomplete="off" style="flex:3 1 200px;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg)"><button id="saveKey">저장</button></div>
-  <div class="muted">키는 이 브라우저에서 해당 서비스로만 전송되고 저장은 이 기기에만 됩니다. 테스트용 무료 키를 쓰고, 공용 PC에서는 저장하지 마세요. Groq 키: console.groq.com · Gemini 키: aistudio.google.com</div>
+  <b>서버</b> <span class="muted" id="serverState">확인 중…</span>
+  <div class="row"><input type="text" id="server" placeholder="서버 주소 — 같은 주소에서 열었다면 비워 두세요 (예: https://xxxx.trycloudflare.com)"><button id="connect">연결</button></div>
+  <div class="row muted"><label>해설 깊이
+    <select id="depth"><option value="rich">풍부하게 (모델 배경지식 포함)</option><option value="grounded">자료만 (엄격)</option></select></label></div>
+  <div class="muted">해설(LLM)과 음성(TTS)은 서버가 만들어 줍니다. 키는 서버에만 있고 이 화면에는 입력하지 않아요. 서버 주소가 다른 도메인이면 서버의 <code>ALLOWED_ORIGINS</code> 설정이 필요합니다.</div>
 </div>
 
 <div class="card"><b>대화</b><div id="log"></div><div id="chips" class="row" style="flex-wrap:wrap"></div></div>
@@ -92,35 +90,21 @@ const dirFromText = t => { t=t.toLowerCase(); for(const d of ['left','right','ba
 const SHARED = {
  "PERSONAS": {
   "historian": {
-   "label": "역사학자",
-   "style": "차분하고 박식한 역사학자. 연도·인물·인과관계를 짚어 '왜 여기에 이게 있는지'를 설명하고, 고대와 현재를 잇는 한 줄 통찰로 마무리한다. 존댓말, 과장 금지."
+   "label": "역사학자"
   },
   "funny": {
-   "label": "유머러스",
-   "style": "입담 좋은 현지 친구 같은 가이드. 첫 문장은 시선을 끄는 농담이나 과장된 비유로 시작하고, 역사 사실은 요즘 일상(주차, 맛집 줄, 층간소음, 인스타 등)에 빗대 웃기게 풀어준다. 비웃음이나 혐오 농담은 금지, 가벼운 자기비하와 반전 위주. 반말 섞인 친근한 존댓말."
+   "label": "유머러스"
   },
   "kid": {
-   "label": "아이용",
-   "style": "초등학생에게 설명하는 다정한 선생님. 어려운 단어는 쉬운 비유로 바꾸고, 마지막에 '찾아볼까?' 같은 작은 관찰 퀴즈를 하나 낸다. 무서운 내용은 순화한다."
+   "label": "아이용"
   },
   "storyteller": {
-   "label": "이야기꾼",
-   "style": "라디오 드라마 내레이터. 장면을 상상하게 만드는 현장 묘사로 시작('지금 눈을 감고 상상해 보세요…')하고, 한 인물의 시점으로 사건을 짧은 이야기처럼 들려준다. 단, 근거에 없는 대사나 사건은 지어내지 말고 '전해집니다'로 표시한다."
+   "label": "이야기꾼"
   },
   "insider": {
-   "label": "현지 고수",
-   "style": "그 동네 10년 산 고수. 관광객이 놓치기 쉬운 포인트(보는 각도, 시간대, 줄 피하는 법)를 귀띔하듯 알려준다. 확실하지 않은 영업시간·가격은 절대 단정하지 말고 '확인해 보세요'라고 한다."
+   "label": "현지 고수"
   }
  },
- "SYSTEM_TEMPLATE": "당신은 걸으면서 이어폰으로 듣는 오디오 가이드입니다. 목록·마크다운·이모지·괄호 설명은 쓰지 말고 소리 내어 읽기 좋은 문장으로만 말하세요.\n[페르소나] {style}\n- 페르소나는 '말투와 재미'에만 적용합니다. 사실은 아래 지식 사용 규칙을 따르세요.\n{knowledge}\n\n{task}\n\n[장소] {place} (사용자 기준 {direction}, {distance}m)\n[근거] {summary}\n[주변] {near}",
- "TASK_STORY": "지금은 이 장소를 처음 소개하는 '이야기'입니다. 한 편의 스토리를 들려주듯 말하세요.\n- {language}로 구어체, 10~14문장(약 70~100초 분량). 한 문장은 너무 길지 않게.\n{outline}",
- "TASK_FOLLOWUP": "지금은 방금 들려준 이야기에 대한 후속 질문에 답하는 대화입니다.\n- {language}로 구어체 3~6문장(약 20초). 질문에 먼저 직접 답하고, 이야기하던 장소({place})와 이어서 설명하세요.\n- 이전 대화에서 이미 한 말을 반복하지 말고, 새 정보를 주세요. 마지막에 이어서 궁금해할 만한 것을 한 가지 제안해도 좋습니다.\n- 질문이 이 장소와 무관하면 짧게 답하고 다시 주변 이야기로 자연스럽게 돌아오세요.",
- "STORY_OUTLINE": "이야기 구성 (자연스럽게 이어서 말하고, 번호·소제목은 말하지 말 것):\n1) 장면 도입: 지금 눈앞에 보이는 모습과 위치(방향·거리)로 시작\n2) 탄생 이야기: 누가·언제·왜 만들었는지, 당시 사람들에게 어떤 의미였는지\n3) 흥미로운 반전이나 일화 1~2개 (전해지는 이야기는 '전해집니다'로 표시)\n4) 시간이 흐르며 겪은 일과 지금의 모습, 눈여겨볼 관전 포인트(보는 위치·세부 요소)\n5) 주변 연결: 가까운 볼거리를 방향과 함께 소개\n6) 마지막 한 문장: 더 궁금한 걸 물어봐 달라고 자연스럽게 권유",
- "KNOWLEDGE_RULES": {
-  "rich": "지식 사용 규칙 (풍부하게, 단 정직하게):\n- [근거]는 검증된 자료입니다. 이것을 뼈대로 삼고, 당신이 알고 있는 널리 알려진 배경지식(건축·역사·인물·일화·양식·그 시대 상황)으로 살을 붙여 풍성하게 설명하세요.\n- 연도·수치·고유명사는 확실할 때만 말하고, 확실하지 않으면 \"대략\", \"자료마다 달라요\"처럼 불확실성을 밝히세요. 근거에 없는 것을 지어내지 마세요(지어내지 말고 모르면 모른다고 말하기).\n- 전설·일화는 \"~라고 전해집니다\"로 표시하고, [근거]와 당신의 기억이 충돌하면 [근거]를 따르세요.",
-  "grounded": "지식 사용 규칙 (엄격):\n- 사실(연도·수치·인물)은 [근거]에 있는 것만 쓰세요. 근거에 없으면 지어내지 말고 모른다고 말하세요."
- },
- "NO_SUMMARY": "제공된 정보 없음 (일반 상식으로만 조심스럽게 설명하고, 모르는 부분은 모른다고 말할 것)",
  "FOLLOW_UPS": {
   "ko": [
    "누가, 왜 만들었어?",
@@ -188,7 +172,7 @@ const SHARED = {
 const PLACES = SHARED.PLACES;
 
 // ---------- 상태 ----------
-const S = {lat:41.8896, lng:12.4895, heading:90, spoken:new Set(), radius:300, backend:false, history:[], focus:null, lastTalk:0};
+const S = {lat:41.8896, lng:12.4895, heading:90, spoken:new Set(), radius:300, history:[], focus:null, lastTalk:0};
 const ORIGIN = {lat:41.8896, lng:12.4905};
 const $ = id => document.getElementById(id);
 
@@ -199,58 +183,39 @@ function nearby(){
   }).filter(p=>p.distance_m<=S.radius).sort((a,b)=>a.distance_m-b.distance_m);
 }
 
-// ---------- 프롬프트 (SHARED 템플릿은 backend/app/narrator.py 에서 생성 → 항상 서버와 동일) ----------
-const PERSONAS = SHARED.PERSONAS;
-const TONE = { // AI 엔진이 없을 때 템플릿에 입히는 말투
- historian:{open:'', close:' 지금 눈앞의 이 풍경에 오랜 시간이 겹겹이 쌓여 있는 셈이죠.'},
- funny:{open:'자, 여기서 폰 꺼내시죠, 인증샷 각입니다! ', close:' 예나 지금이나 사람들이 몰리는 자리인 건 변함이 없네요.'},
- kid:{open:'친구야, 잘 들어봐! ', close:' 그럼 퀴즈! 지금 보이는 것 중에 제일 오래돼 보이는 돌을 찾아볼까?'},
- storyteller:{open:'잠깐 눈을 감고 상상해 보세요. 함성과 먼지, 그리고 뜨거운 햇살… ', close:' 그날의 이야기는 지금도 이 돌벽 어딘가에 남아 있다고들 하죠.'},
- insider:{open:'이건 아는 사람만 아는 건데요, ', close:' 운영 시간이나 입장 방법은 가기 전에 꼭 확인해 보세요.'},
-};
-const fmt = (t, v) => t.replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m);
-function buildSystem(p, neighbors, mode){
-  const near = neighbors.map(n=>`${n.name}(${DIR[n.direction]} ${n.distance_m}m)`).join(', ') || '없음';
-  const task = fmt(mode==='followup' ? SHARED.TASK_FOLLOWUP : SHARED.TASK_STORY, {language:'한국어', place:p.name, outline:SHARED.STORY_OUTLINE});
-  return fmt(SHARED.SYSTEM_TEMPLATE, {style:PERSONAS[$('persona').value].style, knowledge:SHARED.KNOWLEDGE_RULES.rich, task,
-    place:p.name, direction:DIR[p.direction], distance:p.distance_m, summary:p.summary||SHARED.NO_SUMMARY, near});
-}
-function buildMessages(pl, question){
-  return [{role:'system', content:buildSystem(pl.place, pl.neighbors, pl.mode)}, ...S.history.slice(-8),
-          {role:'user', content: question || (pl.mode==='story' ? '이 장소를 이야기해줘' : '더 알려줘')}];
-}
-
-const LLM = {
-  groq:{url:'https://api.groq.com/openai/v1/chat/completions', model:'llama-3.3-70b-versatile'},
-  openrouter:{url:'https://openrouter.ai/api/v1/chat/completions', model:'meta-llama/llama-3.3-70b-instruct:free'},
-  gemini:{model:'gemini-2.5-flash'},
-};
-async function callLLM(messages, maxTokens){
-  const prov=$('prov').value, key=$('key').value.trim(), model=$('model').value.trim()||LLM[prov].model;
-  const sig=AbortSignal.timeout(40000);
-  if(prov==='gemini'){
-    const system=messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n');
-    const contents=messages.filter(m=>m.role!=='system').map(m=>({role:m.role==='assistant'?'model':'user', parts:[{text:m.content}]}));
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal:sig,
-      headers:{'Content-Type':'application/json','x-goog-api-key':key},
-      body:JSON.stringify({systemInstruction:{parts:[{text:system}]}, contents, generationConfig:{temperature:.8,maxOutputTokens:maxTokens}})});
-    if(!r.ok) throw new Error('Gemini '+r.status);
-    return (await r.json()).candidates[0].content.parts.map(p=>p.text||'').join('').trim();
+// ---------- 서버 연결 (해설=서버 LLM, 음성=서버 TTS. 키는 서버에만 있다) ----------
+const PERSONAS = SHARED.PERSONAS;   // 표시용 이름만. 프롬프트는 서버가 가진다.
+const store={get:k=>{try{return localStorage.getItem(k)||''}catch{return ''}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}}};
+let API='';                          // 같은 주소에서 열었으면 ''
+function setApi(u){ API=(u||'').trim().replace(/\/+$/,''); Voice.setBase(API); store.set('wg_server',API); }
+function setConn(ok){ $('mode').textContent = ok ? '서버 연결됨' : '서버 없음 (샘플 해설)'; }
+async function connect(){
+  $('serverState').textContent='연결 확인 중…';
+  try{
+    const h=await (await fetch(API+'/api/health',{signal:AbortSignal.timeout(6000)})).json();
+    setConn(true);
+    $('serverState').textContent=`LLM: ${h.llm}${h.llm==='mock'?' (미연결 → 샘플 응답)':''} · TTS: ${h.tts?'서버 음성':'브라우저 음성'} · 카메라(VLM): ${h.vision?'가능':'꺼짐'} · 장소: ${h.places}`;
+    await loadServerPlaces();
+  }catch{
+    setConn(false);
+    $('serverState').textContent='서버에 연결할 수 없어요. 주소·서버 상태·CORS(ALLOWED_ORIGINS)를 확인하세요.';
   }
-  const r=await fetch(LLM[prov].url,{method:'POST',signal:sig,headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
-    body:JSON.stringify({model,temperature:.8,max_tokens:maxTokens,messages})});
-  if(!r.ok) throw new Error(prov+' '+r.status);
-  return (await r.json()).choices[0].message.content.trim();
 }
-const llmReady=()=>$('prov').value && $('key').value.trim();
+async function loadServerPlaces(){   // 서버가 쓰는 장소 목록으로 지도를 맞춘다(키 없는 mock이면 같은 샘플)
+  try{
+    const r=await fetch(API+'/api/nearby',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(10000),
+      body:JSON.stringify({lat:ORIGIN.lat,lng:ORIGIN.lng,radius_m:1000})});
+    const ps=await r.json();
+    if(Array.isArray(ps)&&ps.length){ PLACES.splice(0,PLACES.length,...ps.map(p=>({id:p.id,name:p.name,lat:p.lat,lng:p.lng,summary:p.summary}))); draw(); }
+  }catch{}
+}
 
-// ---------- 대화 계획 (backend/app/main.py plan_request 와 같은 규칙) ----------
-// 방향어 없는 질문 + 직전 장소(focus)가 있으면 '후속 질문', 방향어/새 장소면 '새 이야기'.
+// ---------- 대화 계획 (서버 plan_request 와 같은 규칙. 서버 없이 샘플로 대신 답할 때만 쓴다) ----------
 function plan(question, placeId){
   const q=question.trim(), d=dirFromText(q), ps=nearby();
   const others=pl=>ps.filter(p=>p.id!==pl.id).slice(0,3);
   if(S.focus && q && !placeId && !d){
-    const place=ps.find(p=>p.id===S.focus.id) || S.focus;   // 움직였다면 최신 거리·방향으로
+    const place=ps.find(p=>p.id===S.focus.id) || S.focus;
     return {mode:'followup', place, neighbors:others(place)};
   }
   if(!ps.length) return {msg:'근처에서 설명할 만한 장소를 찾지 못했어요. 조금 더 걸어 보세요.'};
@@ -260,45 +225,59 @@ function plan(question, placeId){
   return {mode:'story', place:targets[0], neighbors:others(targets[0])};
 }
 function templateText(pl){
-  const T=TONE[$('persona').value], p=pl.place, n=pl.neighbors[0];
-  if(pl.mode==='followup') return 'AI 해설 엔진이 연결되어 있지 않아서 자유 질문에는 답할 수 없어요. 위의 "AI 해설 엔진"에 무료 키를 넣으면 이어서 대화할 수 있어요.';
-  return `${T.open}${DIR[p.direction]} ${p.distance_m}미터 앞에 보이는 곳은 ${p.name}입니다. ${p.summary}${n?` 근처 ${DIR[n.direction]}에는 ${n.name}도 있어요.`:''}${T.close}`;
+  const p=pl.place, n=pl.neighbors[0];
+  if(pl.mode==='followup') return '서버에 연결되어 있지 않아서 자유 질문에는 답할 수 없어요. 위의 서버 주소를 확인해 주세요.';
+  return `${DIR[p.direction]} ${p.distance_m}미터 앞에 보이는 곳은 ${p.name}입니다. ${p.summary}${n?` 근처 ${DIR[n.direction]}에는 ${n.name}도 있어요.`:''}`;
 }
 
+// ---------- 질문 → 서버 스트리밍 응답 (문장이 오는 즉시 표시 + 서버 TTS 큐 투입) ----------
+let ctl=null;
 async function ask(question, auto=false, placeId=null){
   const q=question.trim(); S.lastTalk=Date.now();
-  log(auto?'s':'u', (auto?'🔔 ':'')+q);
-  chips([]);
-  const pl=plan(q, placeId);
-  if(pl.msg){ log('a','🎧 '+pl.msg); say(pl.msg); return; }
-  let text=null, engine, mode=pl.mode, place=pl.place, ups=null;
-  if(llmReady()){
-    try{ text=await callLLM(buildMessages(pl,q), pl.mode==='story'?1400:700); engine=$('prov').value; setMode(false); }
-    catch(e){ log('s','⚠️ AI 호출 실패('+e.message+') → 템플릿으로 대신 답합니다. 키·모델·네트워크를 확인하세요.'); engine='템플릿'; }
-  } else {
-    try{
-      const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(60000),
-        body:JSON.stringify({lat:S.lat,lng:S.lng,heading:S.heading,radius_m:S.radius,question:q,persona:$('persona').value,
-          place_id:placeId,history:S.history.slice(-8),focus:S.focus})});
-      if(!r.ok) throw 0;
-      const a=await r.json(); text=a.text; engine='서버'; mode=a.mode; place=a.place||place; ups=a.follow_ups; setMode(true);
-    }catch{ setMode(false); engine='템플릿'; }
+  ctl && ctl.abort(); const my=ctl=new AbortController();
+  log(auto?'s':'u', (auto?'🔔 ':'')+q); chips([]);
+  const persona=$('persona').value, prefix=`🎧 [${PERSONAS[persona].label}] `, el=log('a',prefix), speak=$('speak').checked;
+  if(speak) Voice.start({persona}); else Voice.stop();
+  let full='', meta=null;
+  try{
+    const r=await fetch(API+'/api/ask/stream',{method:'POST',signal:my.signal,headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:S.lat,lng:S.lng,heading:S.heading,radius_m:S.radius,question:q,persona,depth:$('depth').value,
+        place_id:placeId,history:S.history.slice(-8),focus:S.focus})});
+    if(!r.ok) throw new Error(r.status);
+    const reader=r.body.getReader(), dec=new TextDecoder(); let buf='';
+    for(;;){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let i; while((i=buf.indexOf('\n\n'))>=0){
+        const line=buf.slice(0,i); buf=buf.slice(i+2);
+        if(!line.startsWith('data: ')) continue;
+        const ev=JSON.parse(line.slice(6));
+        if(ev.type==='meta') meta=ev;
+        else if(ev.type==='sentence'){ full+=(full?' ':'')+ev.text; el.textContent=prefix+full; if(speak) Voice.push(ev.text); $('log').scrollTop=$('log').scrollHeight; }
+        else if(ev.type==='error') log('s','⚠️ 서버의 해설 생성 중 오류가 났어요. 다시 물어봐 주세요.');
+      }
+    }
+    setConn(true);
+  }catch(e){
+    if(e.name==='AbortError') return;
+    log('s','⚠️ 서버 호출 실패('+e.message+') → 샘플 해설로 대신 답합니다.'); setConn(false);
+  }finally{ if(speak) Voice.end(); }
+  if(my.signal.aborted) return;
+  if(!full){   // 서버가 안 되면 샘플 데이터로 대신 답한다
+    const pl=plan(q,placeId); full=pl.msg||templateText(pl); el.textContent=prefix+full;
+    if(speak) Voice.say(full,{persona});
+    meta={mode:pl.mode||'story', place:pl.place||null, follow_ups:null};
   }
-  if(text==null) text=templateText(pl);
-  log('a',`🎧 [${PERSONAS[$('persona').value].label} · ${engine}] `+text); say(text);
-  const turn=[{role:'user',content:q||'이 장소를 이야기해줘'},{role:'assistant',content:text}];
+  const mode=meta?.mode||'story';
+  const turn=[{role:'user',content:q||'이 장소를 이야기해줘'},{role:'assistant',content:full}];
   S.history = mode==='followup' ? S.history.concat(turn) : turn;   // 새 이야기면 맥락 리셋
-  S.focus = place;
-  chips(ups || (mode==='story' ? SHARED.FOLLOW_UPS.ko.slice(0,3) : SHARED.FOLLOW_UPS.ko.slice(3)));
+  if(meta?.place) S.focus=meta.place;
+  chips(meta?.follow_ups || (mode==='story' ? SHARED.FOLLOW_UPS.ko.slice(0,3) : SHARED.FOLLOW_UPS.ko.slice(3)));
   draw();
 }
-function setMode(b){ S.backend=b; $('mode').textContent=b?'서버 연결됨 (/api/ask)':'로컬 모드'; }
 
-function say(t){
-  if(!$('speak').checked) return Voice.stop();
-  Voice.say(t,{persona:$('persona').value}); // 서버 TTS가 없으면 자동으로 브라우저 음성
-}
-function log(cls,t){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=t; const l=$('log'); l.appendChild(d); l.scrollTop=l.scrollHeight; }
+function say(t){ if(!$('speak').checked) return Voice.stop(); Voice.say(t,{persona:$('persona').value}); }
+function log(cls,t){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=t; const l=$('log'); l.appendChild(d); l.scrollTop=l.scrollHeight; return d; }
 function chips(list){
   $('chips').innerHTML='';
   list.forEach(t=>{ const b=document.createElement('button'); b.className='sec chip'; b.textContent=t; b.onclick=()=>ask(t); $('chips').appendChild(b); });
@@ -362,11 +341,13 @@ $('mic').onclick=()=>{
   const r=new SR(); r.lang='ko-KR'; r.onresult=e=>ask(e.results[0][0].transcript); r.start();
 };
 addEventListener('keydown',e=>{ const k={ArrowUp:()=>move(20),ArrowDown:()=>move(-20),ArrowLeft:()=>turn(-45),ArrowRight:()=>turn(45)}[e.key]; if(k){e.preventDefault();k();} });
-const store={get:k=>{try{return localStorage.getItem(k)||''}catch{return ''}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}}};
-$('prov').value=store.get('wg_prov'); $('model').value=store.get('wg_model'); $('key').value=store.get('wg_key');
-$('saveKey').onclick=()=>{ store.set('wg_prov',$('prov').value); store.set('wg_model',$('model').value); store.set('wg_key',$('key').value); log('s',llmReady()?'AI 엔진 설정을 저장했어요. 이제 질문하면 '+$('prov').value+'가 답합니다.':'엔진 없음으로 저장했어요.'); };
+const initial=new URLSearchParams(location.search).get('server') ?? store.get('wg_server');
+$('server').value=initial; setApi(initial);
+$('connect').onclick=()=>{ setApi($('server').value); connect(); };
+$('server').addEventListener('keydown',e=>{ if(e.key==='Enter') $('connect').click(); });
 draw();
 log('s','시작: 콜로세움 서쪽에서 동쪽(90°)을 보고 서 있습니다. "앞에 있는 건물 뭐야?"를 눌러 보세요.');
+connect();
 </script>
 </body>
 </html>

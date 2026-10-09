@@ -34,3 +34,6 @@ TTS_FORMAT = os.getenv("TTS_FORMAT", "mp3")            # mp3 | wav
 TTS_CACHE_DIR = os.getenv("TTS_CACHE_DIR", ".tts_cache")
 MAX_IMAGE_BYTES = int(os.getenv("MAX_IMAGE_BYTES", str(4 * 1024 * 1024)))
 MAX_TTS_CHARS = int(os.getenv("MAX_TTS_CHARS", "600"))
+
+# 프런트엔드를 다른 도메인에서 서빙할 때만 설정 (쉼표 구분, "*" 허용). 같은 도메인이면 비워 둔다.
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "")

@@ -39,11 +39,42 @@ _LEXICON = {  # 발음이 흔들리는 표기 → 읽는 소리
 }
 
 
+_ONES = ["", "한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉"]
+_TENS = ["", "열", "스물", "서른", "마흔", "쉰", "예순", "일흔", "여든", "아흔"]
+_NATIVE_COUNTERS = r"(번째|번(?!지)|명|개|곳|채|마리|살|그루|척)"
+
+
+def native(n: int, counter: str) -> str | None:
+    """고유어 수(1~99): 3명 → 세 명, 20개 → 스무 개, 1번째 → 첫 번째. 100 이상은 None(한자어로 읽음)."""
+    if not 1 <= n <= 99:
+        return None
+    tens, ones = divmod(n, 10)
+    if n == 20 and counter != "":
+        return "스무"
+    if n == 1 and counter == "번째":
+        return "첫"
+    return _TENS[tens] + _ONES[ones]
+
+
+def _native_sub(m: re.Match) -> str:
+    n = int(m.group(1).replace(",", ""))
+    w = native(n, m.group(2)) or sino(n)  # 100 이상은 한자어로: 100명 → 백 명
+    return f"{w} {m.group(2)}"
+
+
+def _decimal_sub(m: re.Match) -> str:
+    """3.5미터 → 삼점오 미터"""
+    frac = "".join(_D[int(c)] for c in m.group(2))
+    return f"{sino(int(m.group(1)))}점{frac} {m.group(3)}"
+
+
 def normalize(text: str) -> str:
     t = re.sub(r"(\d+)\s*m\b", r"\1미터", text)  # 90m → 90미터
+    t = re.sub(r"(?<![\d,.])(\d+)\.(\d+)\s*" + _SINO_COUNTERS, _decimal_sub, t)
+    t = re.sub(r"(?<![\d,.])(\d{1,3}(?:,\d{3})+|\d+)\s*" + _NATIVE_COUNTERS, _native_sub, t)
     for k, v in _LEXICON.items():
         t = re.sub(rf"\b{re.escape(k)}\b", v, t) if k.isalpha() else t.replace(k, v)
-    t = re.sub(r"(\d{1,3}(?:,\d{3})+|\d+)\s*" + _SINO_COUNTERS,
+    t = re.sub(r"(?<![\d,.])(\d{1,3}(?:,\d{3})+|\d+)\s*" + _SINO_COUNTERS,
                lambda m: sino(int(m.group(1).replace(",", ""))) + ("" if m.group(2) in _NO_SPACE else " ") + m.group(2), t)
     t = re.sub(r"\s*[\n\r]+\s*", ". ", t)
     return re.sub(r"\s{2,}", " ", t).strip()

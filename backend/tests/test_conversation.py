@@ -201,3 +201,34 @@ def test_sim_shared_block_is_in_sync_with_backend():
     spec.loader.exec_module(mod)
     html = (root / "web" / "sim.html").read_text()
     assert mod.shared_block() in html, "sim.html 이 낡았습니다: python backend/scripts/sync_sim.py --write"
+
+
+# ---------- 연결 점검 / CORS ----------
+def test_health_reports_engines_without_secrets(monkeypatch):
+    monkeypatch.setattr(config, "LLM_PROVIDER", "mock")
+    monkeypatch.setattr(config, "TTS_BASE_URL", "")
+    r = c.get("/api/health").json()
+    assert r["ok"] and r["llm"] == "mock" and r["tts"] is False
+    monkeypatch.setattr(config, "LLM_PROVIDER", "vlm")
+    monkeypatch.setattr(config, "TTS_BASE_URL", "http://tts/v1")
+    monkeypatch.setattr(config, "VLM_BASE_URL", "https://secret-host/v1")
+    monkeypatch.setattr(config, "VLM_API_KEY", "secret-key")
+    body = c.get("/api/health")
+    assert body.json()["llm"] == "vlm" and body.json()["tts"] is True
+    assert "secret" not in body.text
+
+
+def test_cors_only_for_configured_origins():
+    from fastapi import FastAPI
+    from app.main import configure_cors
+    off, on = FastAPI(), FastAPI()
+    for a in (off, on):
+        a.post("/x")(lambda: {"ok": 1})
+    configure_cors(off, "")
+    configure_cors(on, "https://front.example, https://b.example")
+    h = {"Origin": "https://front.example", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type"}
+    assert "access-control-allow-origin" not in TestClient(off).options("/x", headers=h).headers
+    r = TestClient(on).options("/x", headers=h)
+    assert r.headers["access-control-allow-origin"] == "https://front.example"
+    h["Origin"] = "https://evil.example"
+    assert "access-control-allow-origin" not in TestClient(on).options("/x", headers=h).headers

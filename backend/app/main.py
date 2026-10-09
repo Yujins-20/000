@@ -2,10 +2,11 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import narrator, tts, vision
+from . import config, llm, narrator, tts, vision
 from .cache import TTLCache
 from .geo import direction_from_text
 from .models import Answer, AskRequest, LookRequest, Location, Place, TtsRequest
@@ -16,6 +17,16 @@ app = FastAPI(title="WalkGuide")
 cache = TTLCache()
 
 
+def configure_cors(application: FastAPI, origins: str) -> None:
+    allowed = [o.strip() for o in origins.split(",") if o.strip()]
+    if allowed:  # 인증 쿠키를 쓰지 않는 API라 credentials 는 허용하지 않는다
+        application.add_middleware(CORSMiddleware, allow_origins=allowed, allow_methods=["GET", "POST"],
+                                   allow_headers=["Content-Type"])
+
+
+configure_cors(app, config.ALLOWED_ORIGINS)
+
+
 def pick_target(places: list[Place], question: str) -> list[Place]:
     """질문 속 방향어가 있으면 그 방향 후보만, 없으면 정면 우선 → 가장 가까운 순."""
     d = direction_from_text(question)
@@ -24,9 +35,16 @@ def pick_target(places: list[Place], question: str) -> list[Place]:
     return sorted(places, key=lambda p: (p.direction != "front", p.distance_m))
 
 
+def vlm_configured() -> bool:
+    from . import vlm
+    return vlm.configured()
+
+
 @app.get("/api/health")
 def health():
-    return {"ok": True}
+    """연결 점검용. 어떤 엔진이 켜져 있는지만 알려주고, 주소·키는 노출하지 않는다."""
+    return {"ok": True, "llm": llm.resolve_provider(), "tts": tts.configured(),
+            "vision": vlm_configured(), "places": config.PLACES_PROVIDER}
 
 
 @app.post("/api/nearby", response_model=list[Place])

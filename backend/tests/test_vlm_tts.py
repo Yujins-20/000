@@ -125,3 +125,10 @@ def test_api_tts_and_cache(monkeypatch, tmp_path):
     assert url == "http://tts/v1/audio/speech" and body["input"] == "삼백십오 년에 지었어요." and body["voice"] == "sohee"
     assert tts.VOICE_STYLE["funny"] == body["instructions"]
     assert c.post("/api/tts", json={"text": "x" * 601}).status_code == 422
+
+
+@pytest.mark.parametrize("src,out", [("3명이 왔다", "세 명이 왔다"), ("1번째 이야기", "첫 번째 이야기"), ("2번째", "두 번째"),
+                                      ("20개", "스무 개"), ("11개", "열한 개"), ("100명", "백 명"), ("12번지", "십이 번지"),
+                                      ("5만 명 수용", "오만 명 수용"), ("3.5미터", "삼점오 미터"), ("1,200명", "천이백 명")])
+def test_normalize_native_counters(src, out):
+    assert tts.normalize(src) == out

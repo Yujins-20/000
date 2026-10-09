@@ -12,7 +12,7 @@ uvicorn app.main:app --reload --host 0.0.0.0
 휴대폰의 GPS/나침반/마이크는 HTTPS가 필요하므로 배포하거나 ngrok 등으로 터널링하세요.
 
 ## 시뮬레이션 (GPS 없이 테스트)
-서버 실행 후 `http://localhost:8000/sim.html` — 지도에서 걷고 회전하며 "오른쪽 건물 뭐야?"를 시험할 수 있습니다. 서버 없이 파일만 열어도 로컬 모드로 동작합니다.
+서버 실행 후 `http://localhost:8000/sim.html` — 지도에서 걷고 회전하며 "오른쪽 건물 뭐야?"를 시험할 수 있습니다. 시뮬레이터는 서버의 LLM·TTS를 사용합니다(키 입력 없음). `https://<서버>/sim.html` 로 열거나 화면의 "서버 주소"에 지정하세요. 서버에 닿지 못하면 샘플 데이터로 대신 답합니다.
 
 ## 대화형 해설(스토리 → 후속 질문)
 [docs/CONVERSATION.md](docs/CONVERSATION.md) — `POST /api/ask/stream`(SSE), history/focus 기반 멀티턴, `depth=rich|grounded`.

@@ -94,11 +94,8 @@ def build_system(place: Place, lang: str, persona: str, neighbors: list[Place], 
 
 
 def shared_for_js() -> dict:
-    """시뮬레이터(JS)와 공유하는 프롬프트 자산."""
-    return {"PERSONAS": {k: {"label": v["label"], "style": v["style"]} for k, v in PERSONAS.items()},
-            "SYSTEM_TEMPLATE": SYSTEM_TEMPLATE, "TASK_STORY": TASK_STORY, "TASK_FOLLOWUP": TASK_FOLLOWUP,
-            "STORY_OUTLINE": STORY_OUTLINE, "KNOWLEDGE_RULES": KNOWLEDGE_RULES, "NO_SUMMARY": NO_SUMMARY,
-            "FOLLOW_UPS": FOLLOW_UPS}
+    """시뮬레이터(JS)와 공유하는 표시용 자산(페르소나 이름, 추천 질문). 프롬프트는 서버만 가진다."""
+    return {"PERSONAS": {k: {"label": v["label"]} for k, v in PERSONAS.items()}, "FOLLOW_UPS": FOLLOW_UPS}
 
 
 def build_messages(place: Place, question: str, lang: str, persona: str, neighbors: list[Place],
