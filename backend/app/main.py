@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,6 +11,7 @@ from .cache import TTLCache
 from .geo import direction_from_text
 from .models import Answer, AskRequest, LookRequest, Location, Place, TtsRequest
 from .places import get_provider
+from .ratelimit import limit_ask, limit_tts
 from .streaming import SentenceChunker
 
 app = FastAPI(title="WalkGuide")
@@ -91,7 +92,7 @@ async def plan_request(req: AskRequest) -> Plan:
     return plan
 
 
-@app.post("/api/ask", response_model=Answer)
+@app.post("/api/ask", response_model=Answer, dependencies=[Depends(limit_ask)])
 async def ask(req: AskRequest):
     plan = await plan_request(req)
     if plan.message:
@@ -113,7 +114,7 @@ def sse(obj: dict) -> str:
     return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
 
 
-@app.post("/api/ask/stream")
+@app.post("/api/ask/stream", dependencies=[Depends(limit_ask)])
 async def ask_stream(req: AskRequest):
     """문장이 완성되는 즉시 내려보낸다 → 클라이언트가 첫 문장부터 TTS로 읽기 시작.
     이벤트: meta(장소·모드·추천질문) → sentence* → done | error"""
@@ -153,7 +154,7 @@ async def ask_stream(req: AskRequest):
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-@app.post("/api/look", response_model=Answer)
+@app.post("/api/look", response_model=Answer, dependencies=[Depends(limit_ask)])
 async def look(req: LookRequest):
     """카메라 모드: 사진 + 위치/방향 → 무엇을 보고 있는지 특정하고 해설."""
     from . import vlm
@@ -169,7 +170,7 @@ async def look(req: LookRequest):
     return Answer(text=text, candidates=places[:3])
 
 
-@app.post("/api/tts")
+@app.post("/api/tts", dependencies=[Depends(limit_tts)])
 async def tts_endpoint(req: TtsRequest):
     """텍스트 → 음성. 미설정이면 501 → 클라이언트가 브라우저 TTS로 폴백."""
     if not tts.configured():

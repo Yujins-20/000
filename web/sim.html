@@ -260,6 +260,7 @@ async function ask(question, auto=false, placeId=null){
     setConn(true);
   }catch(e){
     if(e.name==='AbortError') return;
+    if(e.message==='429'){ log('s','⏳ 요청이 너무 많아요. 잠시 후 다시 물어봐 주세요.'); return; }
     log('s','⚠️ 서버 호출 실패('+e.message+') → 샘플 해설로 대신 답합니다.'); setConn(false);
   }finally{ if(speak) Voice.end(); }
   if(my.signal.aborted) return;

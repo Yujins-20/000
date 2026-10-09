@@ -18,6 +18,9 @@ uvicorn app.main:app --reload --host 0.0.0.0
 [docs/CONVERSATION.md](docs/CONVERSATION.md) — `POST /api/ask/stream`(SSE), history/focus 기반 멀티턴, `depth=rich|grounded`.
 시뮬레이터 동기화: 프롬프트를 바꾸면 `python backend/scripts/sync_sim.py --write` 실행(테스트가 어긋남을 잡아줍니다).
 
+## 서버 배포
+[docs/DEPLOY.md](docs/DEPLOY.md) — GPU 서버에 8082로 띄우고 터널로 공개, `scripts/make_env_server.sh`(키 비출력)·`scripts/run_server.sh`, 별도 프런트 도메인은 `web/config.js`.
+
 ## 자체 서버 VLM·TTS
 [docs/SERVER_VLM_TTS.md](docs/SERVER_VLM_TTS.md) — `VLM_BASE_URL`/`VLM_API_KEY`(환경변수), 카메라 모드 `/api/look`, 자연스러운 TTS `/api/tts`.
 

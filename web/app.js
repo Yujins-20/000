@@ -1,4 +1,6 @@
 const $ = id => document.getElementById(id);
+const API_BASE = (window.WALKGUIDE_API_BASE || '').replace(/\/+$/, '');   // 같은 출처면 ''
+Voice.setBase(API_BASE);
 const DIR = {front:'정면', right:'오른쪽', back:'뒤쪽', left:'왼쪽'};
 const state = {pos:null, heading:null, spoken:new Set(), watching:false,
   history:[], focus:null, abort:null, lastTalk:0};
@@ -8,7 +10,7 @@ const payload = (extra = {}) => ({lat:state.pos.lat, lng:state.pos.lng, heading:
   radius_m:+$('radius').value, lang:$('lang').value, persona:$('persona').value, depth:$('depth').value, ...extra});
 
 async function post(url, body, signal){
-  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal});
+  const r = await fetch(API_BASE + url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal});
   if(!r.ok) throw new Error(r.status);
   return r;
 }
@@ -55,7 +57,10 @@ async function ask(question, {placeId = null, auto = false} = {}){
       }
     }
   }catch(e){
-    if(e.name !== 'AbortError') setStatus('오류: ' + e.message);
+    if(e.name !== 'AbortError'){   // 상태줄은 위치 갱신이 덮어쓰므로 대화창에도 남긴다
+      const msg = e.message === '429' ? '⏳ 요청이 너무 많아요. 잠시 후 다시 물어봐 주세요.' : '⚠️ 서버 오류(' + e.message + '). 잠시 후 다시 시도해 주세요.';
+      out.remove(); bubble('s', msg); setStatus(msg);
+    }
   }finally{
     out.classList.remove('live'); Voice.end();
   }

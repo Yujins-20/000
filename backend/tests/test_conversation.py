@@ -232,3 +232,21 @@ def test_cors_only_for_configured_origins():
     assert r.headers["access-control-allow-origin"] == "https://front.example"
     h["Origin"] = "https://evil.example"
     assert "access-control-allow-origin" not in TestClient(on).options("/x", headers=h).headers
+
+
+# ---------- 배포 계약 ----------
+def test_frontend_loads_config_before_app_and_uses_api_base():
+    import pathlib
+    web = pathlib.Path(__file__).parents[2] / "web"
+    html = (web / "index.html").read_text()
+    assert html.index("config.js") < html.index("tts.js") < html.index("app.js")
+    assert "WALKGUIDE_API_BASE" in (web / "config.js").read_text()
+    app_js = (web / "app.js").read_text()
+    assert "API_BASE + url" in app_js and "Voice.setBase(API_BASE)" in app_js
+
+
+def test_deploy_scripts_never_echo_the_key():
+    import pathlib
+    mk = (pathlib.Path(__file__).parents[1] / "scripts" / "make_env_server.sh").read_text()
+    assert "chmod 600" in mk and "umask 077" in mk
+    assert 'echo "$KEY"' not in mk and "echo $KEY" not in mk

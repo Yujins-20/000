@@ -5,3 +5,6 @@ __pycache__/
 .tts_cache/
 *.mp3
 *.wav
+.env.server
+.env.*
+!.env.example
