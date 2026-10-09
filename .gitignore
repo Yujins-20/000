@@ -8,3 +8,6 @@ __pycache__/
 .env.server
 .env.*
 !.env.example
+.venv/
+*.log
+*.pid
