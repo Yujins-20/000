@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -20,15 +22,26 @@ class Location(BaseModel):
     radius_m: int = Field(default=150, ge=20, le=1000)
 
 
+class Turn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=4000)
+
+
 class AskRequest(Location):
-    question: str = ""
+    question: str = Field(default="", max_length=500)
     lang: str = "ko"
     persona: str = "historian"   # narrator.PERSONAS 의 키
     place_id: str | None = None  # 자동 안내처럼 대상이 이미 정해진 경우
+    mode: Literal["auto", "story", "followup"] = "auto"
+    depth: Literal["rich", "grounded"] = "rich"   # rich: 모델의 배경지식 허용(불확실하면 밝힘)
+    history: list[Turn] = Field(default_factory=list, max_length=12)
+    focus: Place | None = None   # 직전 답변이 다룬 장소 → 후속 질문의 대상으로 유지
 
 
 class Answer(BaseModel):
     text: str
+    mode: str = "story"
+    follow_ups: list[str] = []
     place: Place | None = None
     candidates: list[Place] = []
 

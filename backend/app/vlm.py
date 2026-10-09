@@ -3,6 +3,8 @@ import re
 
 import httpx
 
+from .streaming import ThinkFilter, sse_deltas
+
 from . import config
 
 _THINK = re.compile(r"<think>.*?(</think>|$)", re.S)
@@ -17,12 +19,15 @@ def clean(text: str) -> str:
     return _THINK.sub("", text).strip()
 
 
-def build_body(messages: list[dict], max_tokens: int, temperature: float) -> dict:
-    return {
+def build_body(messages: list[dict], max_tokens: int, temperature: float, stream: bool = False) -> dict:
+    body = {
         "model": config.VLM_MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": temperature,
         # vLLM 서버가 chat template 인자로 추론 강도를 받는다 (서버 사양 예시와 동일한 방식)
         "chat_template_kwargs": {"reasoning_effort": config.VLM_REASONING_EFFORT},
     }
+    if stream:
+        body["stream"] = True
+    return body
 
 
 async def chat(messages: list[dict], max_tokens: int = 500, temperature: float = 0.7) -> str:
@@ -32,3 +37,18 @@ async def chat(messages: list[dict], max_tokens: int = 500, temperature: float =
                          headers={"Authorization": f"Bearer {config.VLM_API_KEY}"})
         r.raise_for_status()
     return clean(r.json()["choices"][0]["message"].get("content") or "")
+
+
+async def stream(messages: list[dict], max_tokens: int = 500, temperature: float = 0.7):
+    """content 델타를 순서대로 yield (<think> 제거됨)."""
+    url = config.VLM_BASE_URL.rstrip("/") + "/chat/completions"
+    flt = ThinkFilter()
+    async with httpx.AsyncClient(timeout=httpx.Timeout(60, connect=10)) as c:
+        async with c.stream("POST", url, json=build_body(messages, max_tokens, temperature, stream=True),
+                            headers={"Authorization": f"Bearer {config.VLM_API_KEY}"}) as r:
+            r.raise_for_status()
+            async for d in sse_deltas(r):
+                if t := flt.feed(d):
+                    yield t
+    if t := flt.flush():
+        yield t

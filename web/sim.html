@@ -17,7 +17,8 @@ button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.row>*{flex:1 1 auto}
 input[type=text]{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);flex:3 1 200px;min-width:0}
 .muted{color:var(--muted);font-size:.88rem}
-#log{max-height:260px;overflow:auto}
+#log{max-height:420px;overflow:auto}
+.chip{flex:0 0 auto!important;border-radius:99px;padding:6px 12px;font-size:.88rem}
 .msg{padding:8px 10px;border-radius:10px;margin:6px 0;background:var(--bg)}
 .msg.u{border-left:3px solid var(--muted)}.msg.a{border-left:3px solid var(--accent)}.msg.s{border-left:3px solid #2f855a}
 .pill{display:inline-block;padding:1px 8px;border-radius:99px;background:var(--bg);font-size:.8rem;color:var(--muted)}
@@ -26,7 +27,7 @@ label{display:flex;align-items:center;gap:6px}
 </head>
 <body>
 <h1>🎧 워크가이드 시뮬레이터 <span class="pill" id="mode">로컬 모드</span></h1>
-<p class="muted">로마 콜로세움 일대. 지도를 <b>탭하면 그 위치로 순간이동</b>, 아래 버튼이나 키보드(↑↓ 걷기, ←→ 회전)로 걸으며 질문해 보세요. 80m 안으로 처음 들어오면 가이드가 먼저 말합니다.</p>
+<p class="muted">로마 콜로세움 일대. 지도를 <b>탭하면 그 위치로 순간이동</b>, 아래 버튼이나 키보드(↑↓ 걷기, ←→ 회전)로 걸으며 질문해 보세요. 80m 안으로 처음 들어오면 가이드가 먼저 이야기를 시작하고, 끝나면 <b>이어서 질문</b>("누가 지었어?")할 수 있어요. AI 엔진 키를 넣어야 자유 질문에 답해요.</p>
 
 <canvas id="map" width="720" height="720"></canvas>
 
@@ -71,7 +72,7 @@ label{display:flex;align-items:center;gap:6px}
   <div class="muted">키는 이 브라우저에서 해당 서비스로만 전송되고 저장은 이 기기에만 됩니다. 테스트용 무료 키를 쓰고, 공용 PC에서는 저장하지 마세요. Groq 키: console.groq.com · Gemini 키: aistudio.google.com</div>
 </div>
 
-<div class="card"><b>대화 기록</b><div id="log"></div></div>
+<div class="card"><b>대화</b><div id="log"></div><div id="chips" class="row" style="flex-wrap:wrap"></div></div>
 
 <script src="tts.js"></script>
 <script>
@@ -87,17 +88,107 @@ const DIR = {front:'정면', right:'오른쪽', back:'뒤쪽', left:'왼쪽'};
 const KW = {left:['왼쪽','왼편','좌측','left'], right:['오른쪽','오른편','우측','right'], back:['뒤','behind','back'], front:['앞','정면','맞은편','ahead','front']};
 const dirFromText = t => { t=t.toLowerCase(); for(const d of ['left','right','back','front']) if(KW[d].some(k=>t.includes(k))) return d; return null; };
 
-const PLACES = [
- {id:'colosseum',name:'콜로세움',lat:41.89021,lng:12.49223,summary:'서기 80년경 완공된 로마 최대의 원형 경기장입니다. 약 5만 명을 수용했고 검투사 경기가 열렸어요.'},
- {id:'arch_constantine',name:'콘스탄티누스 개선문',lat:41.88981,lng:12.49055,summary:'315년 밀비우스 다리 전투의 승리를 기념해 세운 개선문으로, 로마에 남은 개선문 중 가장 큽니다.'},
- {id:'forum',name:'포로 로마노',lat:41.89246,lng:12.48531,summary:'고대 로마의 정치·종교·상업 중심지였던 광장 유적입니다.'},
- {id:'san_clemente',name:'산 클레멘테 대성당',lat:41.88897,lng:12.49794,summary:'12세기 성당 아래 4세기 성당, 그 아래 미트라 신전이 겹쳐 있는 3층 구조의 성당이에요.'},
- {id:'palatine',name:'팔라티노 언덕',lat:41.88970,lng:12.48750,summary:'로마 건국 전설의 무대이자 황제들의 궁전이 있던 언덕입니다.'},
- {id:'meta_sudans',name:'메타 수단스 터',lat:41.88983,lng:12.49113,summary:'콜로세움 옆에 있던 원뿔형 분수의 터입니다. 검투사들이 경기 후 씻던 곳이라는 이야기가 전해지지만 확실하진 않아요.'},
-];
+/*SHARED-BEGIN*/
+const SHARED = {
+ "PERSONAS": {
+  "historian": {
+   "label": "역사학자",
+   "style": "차분하고 박식한 역사학자. 연도·인물·인과관계를 짚어 '왜 여기에 이게 있는지'를 설명하고, 고대와 현재를 잇는 한 줄 통찰로 마무리한다. 존댓말, 과장 금지."
+  },
+  "funny": {
+   "label": "유머러스",
+   "style": "입담 좋은 현지 친구 같은 가이드. 첫 문장은 시선을 끄는 농담이나 과장된 비유로 시작하고, 역사 사실은 요즘 일상(주차, 맛집 줄, 층간소음, 인스타 등)에 빗대 웃기게 풀어준다. 비웃음이나 혐오 농담은 금지, 가벼운 자기비하와 반전 위주. 반말 섞인 친근한 존댓말."
+  },
+  "kid": {
+   "label": "아이용",
+   "style": "초등학생에게 설명하는 다정한 선생님. 어려운 단어는 쉬운 비유로 바꾸고, 마지막에 '찾아볼까?' 같은 작은 관찰 퀴즈를 하나 낸다. 무서운 내용은 순화한다."
+  },
+  "storyteller": {
+   "label": "이야기꾼",
+   "style": "라디오 드라마 내레이터. 장면을 상상하게 만드는 현장 묘사로 시작('지금 눈을 감고 상상해 보세요…')하고, 한 인물의 시점으로 사건을 짧은 이야기처럼 들려준다. 단, 근거에 없는 대사나 사건은 지어내지 말고 '전해집니다'로 표시한다."
+  },
+  "insider": {
+   "label": "현지 고수",
+   "style": "그 동네 10년 산 고수. 관광객이 놓치기 쉬운 포인트(보는 각도, 시간대, 줄 피하는 법)를 귀띔하듯 알려준다. 확실하지 않은 영업시간·가격은 절대 단정하지 말고 '확인해 보세요'라고 한다."
+  }
+ },
+ "SYSTEM_TEMPLATE": "당신은 걸으면서 이어폰으로 듣는 오디오 가이드입니다. 목록·마크다운·이모지·괄호 설명은 쓰지 말고 소리 내어 읽기 좋은 문장으로만 말하세요.\n[페르소나] {style}\n- 페르소나는 '말투와 재미'에만 적용합니다. 사실은 아래 지식 사용 규칙을 따르세요.\n{knowledge}\n\n{task}\n\n[장소] {place} (사용자 기준 {direction}, {distance}m)\n[근거] {summary}\n[주변] {near}",
+ "TASK_STORY": "지금은 이 장소를 처음 소개하는 '이야기'입니다. 한 편의 스토리를 들려주듯 말하세요.\n- {language}로 구어체, 10~14문장(약 70~100초 분량). 한 문장은 너무 길지 않게.\n{outline}",
+ "TASK_FOLLOWUP": "지금은 방금 들려준 이야기에 대한 후속 질문에 답하는 대화입니다.\n- {language}로 구어체 3~6문장(약 20초). 질문에 먼저 직접 답하고, 이야기하던 장소({place})와 이어서 설명하세요.\n- 이전 대화에서 이미 한 말을 반복하지 말고, 새 정보를 주세요. 마지막에 이어서 궁금해할 만한 것을 한 가지 제안해도 좋습니다.\n- 질문이 이 장소와 무관하면 짧게 답하고 다시 주변 이야기로 자연스럽게 돌아오세요.",
+ "STORY_OUTLINE": "이야기 구성 (자연스럽게 이어서 말하고, 번호·소제목은 말하지 말 것):\n1) 장면 도입: 지금 눈앞에 보이는 모습과 위치(방향·거리)로 시작\n2) 탄생 이야기: 누가·언제·왜 만들었는지, 당시 사람들에게 어떤 의미였는지\n3) 흥미로운 반전이나 일화 1~2개 (전해지는 이야기는 '전해집니다'로 표시)\n4) 시간이 흐르며 겪은 일과 지금의 모습, 눈여겨볼 관전 포인트(보는 위치·세부 요소)\n5) 주변 연결: 가까운 볼거리를 방향과 함께 소개\n6) 마지막 한 문장: 더 궁금한 걸 물어봐 달라고 자연스럽게 권유",
+ "KNOWLEDGE_RULES": {
+  "rich": "지식 사용 규칙 (풍부하게, 단 정직하게):\n- [근거]는 검증된 자료입니다. 이것을 뼈대로 삼고, 당신이 알고 있는 널리 알려진 배경지식(건축·역사·인물·일화·양식·그 시대 상황)으로 살을 붙여 풍성하게 설명하세요.\n- 연도·수치·고유명사는 확실할 때만 말하고, 확실하지 않으면 \"대략\", \"자료마다 달라요\"처럼 불확실성을 밝히세요. 근거에 없는 것을 지어내지 마세요(지어내지 말고 모르면 모른다고 말하기).\n- 전설·일화는 \"~라고 전해집니다\"로 표시하고, [근거]와 당신의 기억이 충돌하면 [근거]를 따르세요.",
+  "grounded": "지식 사용 규칙 (엄격):\n- 사실(연도·수치·인물)은 [근거]에 있는 것만 쓰세요. 근거에 없으면 지어내지 말고 모른다고 말하세요."
+ },
+ "NO_SUMMARY": "제공된 정보 없음 (일반 상식으로만 조심스럽게 설명하고, 모르는 부분은 모른다고 말할 것)",
+ "FOLLOW_UPS": {
+  "ko": [
+   "누가, 왜 만들었어?",
+   "재밌는 일화 하나만 더 들려줘",
+   "여기서 뭘 눈여겨보면 좋아?",
+   "주변에 또 볼 만한 곳은?",
+   "그 뒤로 어떻게 변했어?",
+   "사진 찍기 좋은 위치는?"
+  ],
+  "en": [
+   "Who built it, and why?",
+   "Tell me one more fun story",
+   "What should I look at here?",
+   "What else is nearby?",
+   "How did it change over time?",
+   "Where's the best photo spot?"
+  ]
+ },
+ "PLACES": [
+  {
+   "id": "colosseum",
+   "name": "콜로세움",
+   "lat": 41.89021,
+   "lng": 12.49223,
+   "summary": "플라비우스 왕조의 베스파시아누스 황제 때인 서기 70년대 초에 공사를 시작해, 아들 티투스가 서기 80년에 개장한 로마 최대의 원형 경기장입니다. 정식 이름은 플라비우스 원형경기장이고, '콜로세움'이라는 이름은 근처에 있던 네로 황제의 거대한 동상(콜로소)에서 왔다는 설이 널리 받아들여집니다. 타원형 평면은 길이 약 190m, 높이는 약 50m에 이르고, 수용 인원은 추정이 갈리지만 5만 명 안팎으로 봅니다. 개장 기념 경기는 100일 동안 이어졌다고 전해집니다. 지하에는 맹수와 검투사가 대기하던 공간과 승강 장치가 있었고, 햇빛을 가리는 거대한 천막 지붕은 선원들이 조작했다고 알려져 있습니다. 중세에는 요새와 석재 채석장으로도 쓰였고, 지진과 약탈로 외벽 일부가 무너져 지금의 모습이 되었습니다."
+  },
+  {
+   "id": "arch_constantine",
+   "name": "콘스탄티누스 개선문",
+   "lat": 41.88981,
+   "lng": 12.49055,
+   "summary": "서기 315년에 봉헌된, 로마에 남은 개선문 중 가장 큰 문입니다. 312년 밀비우스 다리 전투에서 콘스탄티누스 황제가 막센티우스를 이긴 것을 기념해 원로원이 세웠습니다. 높이는 약 21m이고 통로가 세 개입니다. 이 문의 흥미로운 점은 조각 상당수를 트라야누스·하드리아누스·마르쿠스 아우렐리우스 시대의 오래된 기념물에서 가져다 다시 썼다는 것입니다. 그래서 같은 문에 다른 시대의 조각 양식이 섞여 있습니다. 개선 행렬이 콜로세움 옆을 지나 포로 로마노로 향하던 길목에 서 있습니다."
+  },
+  {
+   "id": "forum",
+   "name": "포로 로마노",
+   "lat": 41.89246,
+   "lng": 12.48531,
+   "summary": "팔라티노 언덕과 카피톨리노 언덕 사이의 골짜기에 있던 고대 로마의 중심 광장입니다. 원래는 습지에 가까웠는데 배수 시설(클로아카 막시마)로 말려 시장과 집회 장소가 되었다고 전해집니다. 원로원 의사당(쿠리아), 사투르누스 신전, 신성한 길(비아 사크라), 티투스와 셉티미우스 세베루스의 개선문 등이 모여 있었습니다. 로마가 쇠퇴하면서 땅 아래 묻혀 중세에는 소를 풀어 먹이던 곳이라 '캄포 바키노(소 들판)'로 불렸고, 본격적인 발굴은 18~19세기 이후에 진행되었습니다."
+  },
+  {
+   "id": "san_clemente",
+   "name": "산 클레멘테 대성당",
+   "lat": 41.88897,
+   "lng": 12.49794,
+   "summary": "12세기 초에 지어진 성당 아래에 4세기 성당이 있고, 그 아래에는 1세기 건물들과 미트라 신전이 겹쳐 있는 3층 구조의 성당입니다. 위층에는 12세기 모자이크가 있고, 아래층에는 초기 기독교 시대의 프레스코와 이탈리아어 속어가 적힌 오래된 낙서가 남아 있다고 알려져 있습니다. 가장 아래층에서는 지하수가 흐르는 소리가 들린다고 해서, 시간을 거슬러 내려가는 느낌을 주는 곳으로 유명합니다."
+  },
+  {
+   "id": "palatine",
+   "name": "팔라티노 언덕",
+   "lat": 41.8897,
+   "lng": 12.4875,
+   "summary": "로마 7개 언덕 중 가장 중심이 되는 언덕으로, 기원전 753년에 로물루스가 도시를 세웠다는 건국 전설의 무대입니다. 공화정 시대에는 부유한 귀족들이, 제정 시대에는 황제들이 궁전을 지었고, 영어의 '팰리스(궁전)'라는 단어가 이 언덕 이름 '팔라티움'에서 나왔다고 설명합니다. 아우구스투스의 집과 도미티아누스 황제의 궁전 터가 남아 있고, 언덕 위에서는 포로 로마노와 키르쿠스 막시무스 방향이 내려다보입니다."
+  },
+  {
+   "id": "meta_sudans",
+   "name": "메타 수단스 터",
+   "lat": 41.88983,
+   "lng": 12.49113,
+   "summary": "콜로세움과 콘스탄티누스 개선문 사이에 있던 원뿔형 분수의 터입니다. 이름은 '땀 흘리는 반환점'이라는 뜻으로, 원뿔 꼭대기에서 물이 흘러내리는 모습에서 붙었다고 전해집니다. 서기 1세기 말 플라비우스 왕조 때 만들어졌고, 1930년대 도로 정비 과정에서 철거되어 지금은 둥근 터만 남아 있습니다."
+  }
+ ]
+};
+/*SHARED-END*/
+const PLACES = SHARED.PLACES;
 
 // ---------- 상태 ----------
-const S = {lat:41.8896, lng:12.4895, heading:90, spoken:new Set(), radius:300, backend:false};
+const S = {lat:41.8896, lng:12.4895, heading:90, spoken:new Set(), radius:300, backend:false, history:[], focus:null, lastTalk:0};
 const ORIGIN = {lat:41.8896, lng:12.4905};
 const $ = id => document.getElementById(id);
 
@@ -108,32 +199,25 @@ function nearby(){
   }).filter(p=>p.distance_m<=S.radius).sort((a,b)=>a.distance_m-b.distance_m);
 }
 
-// ---------- 페르소나 (backend/app/narrator.py 와 동일, 테스트로 id 일치 검증) ----------
-const PERSONAS = {
- historian:{label:'역사학자', style:'차분하고 박식한 역사학자. 연도·인물·인과관계를 짚어 \'왜 여기에 이게 있는지\'를 설명하고, 고대와 현재를 잇는 한 줄 통찰로 마무리한다. 존댓말, 과장 금지.',
-   open:'', close:' 지금 눈앞의 이 풍경에 오랜 시간이 겹겹이 쌓여 있는 셈이죠.'},
- funny:{label:'유머러스', style:'입담 좋은 현지 친구 같은 가이드. 첫 문장은 시선을 끄는 농담이나 과장된 비유로 시작하고, 역사 사실은 요즘 일상(주차, 맛집 줄, 층간소음, 인스타 등)에 빗대 웃기게 풀어준다. 비웃음이나 혐오 농담은 금지, 가벼운 자기비하와 반전 위주. 반말 섞인 친근한 존댓말.',
-   open:'자, 여기서 폰 꺼내시죠, 인증샷 각입니다! ', close:' 예나 지금이나 사람들이 몰리는 자리인 건 변함이 없네요.'},
- kid:{label:'아이용', style:'초등학생에게 설명하는 다정한 선생님. 어려운 단어는 쉬운 비유로 바꾸고, 마지막에 \'찾아볼까?\' 같은 작은 관찰 퀴즈를 하나 낸다. 무서운 내용은 순화한다.',
-   open:'친구야, 잘 들어봐! ', close:' 그럼 퀴즈! 지금 보이는 것 중에 제일 오래돼 보이는 돌을 찾아볼까?'},
- storyteller:{label:'이야기꾼', style:'라디오 드라마 내레이터. 장면을 상상하게 만드는 현장 묘사로 시작(\'지금 눈을 감고 상상해 보세요…\')하고, 한 인물의 시점으로 사건을 짧은 이야기처럼 들려준다. 단, 근거에 없는 대사나 사건은 지어내지 말고 \'전해집니다\'로 표시한다.',
-   open:'잠깐 눈을 감고 상상해 보세요. 함성과 먼지, 그리고 뜨거운 햇살… ', close:' 그날의 이야기는 지금도 이 돌벽 어딘가에 남아 있다고들 하죠.'},
- insider:{label:'현지 고수', style:'그 동네 10년 산 고수. 관광객이 놓치기 쉬운 포인트(보는 각도, 시간대, 줄 피하는 법)를 귀띔하듯 알려준다. 확실하지 않은 영업시간·가격은 절대 단정하지 말고 \'확인해 보세요\'라고 한다.',
-   open:'이건 아는 사람만 아는 건데요, ', close:' 운영 시간이나 입장 방법은 가기 전에 꼭 확인해 보세요.'},
+// ---------- 프롬프트 (SHARED 템플릿은 backend/app/narrator.py 에서 생성 → 항상 서버와 동일) ----------
+const PERSONAS = SHARED.PERSONAS;
+const TONE = { // AI 엔진이 없을 때 템플릿에 입히는 말투
+ historian:{open:'', close:' 지금 눈앞의 이 풍경에 오랜 시간이 겹겹이 쌓여 있는 셈이죠.'},
+ funny:{open:'자, 여기서 폰 꺼내시죠, 인증샷 각입니다! ', close:' 예나 지금이나 사람들이 몰리는 자리인 건 변함이 없네요.'},
+ kid:{open:'친구야, 잘 들어봐! ', close:' 그럼 퀴즈! 지금 보이는 것 중에 제일 오래돼 보이는 돌을 찾아볼까?'},
+ storyteller:{open:'잠깐 눈을 감고 상상해 보세요. 함성과 먼지, 그리고 뜨거운 햇살… ', close:' 그날의 이야기는 지금도 이 돌벽 어딘가에 남아 있다고들 하죠.'},
+ insider:{open:'이건 아는 사람만 아는 건데요, ', close:' 운영 시간이나 입장 방법은 가기 전에 꼭 확인해 보세요.'},
 };
-
-function buildPrompt(p, question, neighbors){
-  const near = neighbors.map(n=>`${n.name}(${DIR[n.direction]} ${n.distance_m}m)`).join(', ')||'없음';
-  return `당신은 걸으면서 이어폰으로 듣는 오디오 가이드입니다.
-[페르소나] ${PERSONAS[$('persona').value].style}
-규칙:
-- 한국어로, 구어체로, 4~6문장(약 20초 분량). 목록·마크다운·이모지 금지.
-- 페르소나는 '말투와 재미'에만 적용한다. 사실(연도·수치·인물)은 아래 [근거]에 있는 것만 쓰고, 없으면 지어내지 말고 모른다고 말할 것.
-- 마지막 문장은 가까이에 있는 볼거리를 한 가지 방향과 함께 안내(예: "왼쪽 골목 안쪽에는 ...가 있어요").
-[장소] ${p.name} (사용자 기준 ${DIR[p.direction]}, ${p.distance_m}m)
-[근거] ${p.summary||'제공된 정보 없음'}
-[주변] ${near}
-[사용자 질문] ${question||'이 장소에 대해 알려줘'}`;
+const fmt = (t, v) => t.replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m);
+function buildSystem(p, neighbors, mode){
+  const near = neighbors.map(n=>`${n.name}(${DIR[n.direction]} ${n.distance_m}m)`).join(', ') || '없음';
+  const task = fmt(mode==='followup' ? SHARED.TASK_FOLLOWUP : SHARED.TASK_STORY, {language:'한국어', place:p.name, outline:SHARED.STORY_OUTLINE});
+  return fmt(SHARED.SYSTEM_TEMPLATE, {style:PERSONAS[$('persona').value].style, knowledge:SHARED.KNOWLEDGE_RULES.rich, task,
+    place:p.name, direction:DIR[p.direction], distance:p.distance_m, summary:p.summary||SHARED.NO_SUMMARY, near});
+}
+function buildMessages(pl, question){
+  return [{role:'system', content:buildSystem(pl.place, pl.neighbors, pl.mode)}, ...S.history.slice(-8),
+          {role:'user', content: question || (pl.mode==='story' ? '이 장소를 이야기해줘' : '더 알려줘')}];
 }
 
 const LLM = {
@@ -141,63 +225,84 @@ const LLM = {
   openrouter:{url:'https://openrouter.ai/api/v1/chat/completions', model:'meta-llama/llama-3.3-70b-instruct:free'},
   gemini:{model:'gemini-2.5-flash'},
 };
-async function callLLM(prompt){
+async function callLLM(messages, maxTokens){
   const prov=$('prov').value, key=$('key').value.trim(), model=$('model').value.trim()||LLM[prov].model;
-  const sig=AbortSignal.timeout(20000);
+  const sig=AbortSignal.timeout(40000);
   if(prov==='gemini'){
+    const system=messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n');
+    const contents=messages.filter(m=>m.role!=='system').map(m=>({role:m.role==='assistant'?'model':'user', parts:[{text:m.content}]}));
     const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',signal:sig,
       headers:{'Content-Type':'application/json','x-goog-api-key':key},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.8,maxOutputTokens:500}})});
+      body:JSON.stringify({systemInstruction:{parts:[{text:system}]}, contents, generationConfig:{temperature:.8,maxOutputTokens:maxTokens}})});
     if(!r.ok) throw new Error('Gemini '+r.status);
     return (await r.json()).candidates[0].content.parts.map(p=>p.text||'').join('').trim();
   }
   const r=await fetch(LLM[prov].url,{method:'POST',signal:sig,headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},
-    body:JSON.stringify({model,temperature:.8,max_tokens:500,messages:[{role:'user',content:prompt}]})});
+    body:JSON.stringify({model,temperature:.8,max_tokens:maxTokens,messages})});
   if(!r.ok) throw new Error(prov+' '+r.status);
   return (await r.json()).choices[0].message.content.trim();
 }
 const llmReady=()=>$('prov').value && $('key').value.trim();
 
-// ---------- 로컬 대상 선택 + 템플릿 ----------
-function pickLocal(question, placeId){
-  const ps = nearby();
-  if(!ps.length) return {text:'근처에서 설명할 만한 장소를 찾지 못했어요. 조금 더 걸어 보세요.'};
-  const d = dirFromText(question);
-  const targets = placeId ? ps.filter(p=>p.id===placeId) : d ? ps.filter(p=>p.direction===d) : [...ps].sort((a,b)=>(a.direction!=='front')-(b.direction!=='front')||a.distance_m-b.distance_m);
-  if(!targets.length) return {text:`${DIR[d]}에는 눈에 띄는 장소가 없어요.`};
-  const place=targets[0];
-  return {place, neighbors:ps.filter(x=>x.id!==place.id).slice(0,3)};
+// ---------- 대화 계획 (backend/app/main.py plan_request 와 같은 규칙) ----------
+// 방향어 없는 질문 + 직전 장소(focus)가 있으면 '후속 질문', 방향어/새 장소면 '새 이야기'.
+function plan(question, placeId){
+  const q=question.trim(), d=dirFromText(q), ps=nearby();
+  const others=pl=>ps.filter(p=>p.id!==pl.id).slice(0,3);
+  if(S.focus && q && !placeId && !d){
+    const place=ps.find(p=>p.id===S.focus.id) || S.focus;   // 움직였다면 최신 거리·방향으로
+    return {mode:'followup', place, neighbors:others(place)};
+  }
+  if(!ps.length) return {msg:'근처에서 설명할 만한 장소를 찾지 못했어요. 조금 더 걸어 보세요.'};
+  const targets = placeId ? ps.filter(p=>p.id===placeId) : d ? ps.filter(p=>p.direction===d)
+    : [...ps].sort((a,b)=>(a.direction!=='front')-(b.direction!=='front')||a.distance_m-b.distance_m);
+  if(!targets.length) return {msg:`${DIR[d]}에는 눈에 띄는 장소가 없어요.`};
+  return {mode:'story', place:targets[0], neighbors:others(targets[0])};
 }
-function templateText(p, neighbors){
-  const P=PERSONAS[$('persona').value], n=neighbors[0];
-  const tip = n ? ` 근처 ${DIR[n.direction]}에는 ${n.name}도 있어요.` : '';
-  return `${P.open}${DIR[p.direction]} ${p.distance_m}미터 앞에 보이는 곳은 ${p.name}입니다. ${p.summary}${tip}${P.close}`;
+function templateText(pl){
+  const T=TONE[$('persona').value], p=pl.place, n=pl.neighbors[0];
+  if(pl.mode==='followup') return 'AI 해설 엔진이 연결되어 있지 않아서 자유 질문에는 답할 수 없어요. 위의 "AI 해설 엔진"에 무료 키를 넣으면 이어서 대화할 수 있어요.';
+  return `${T.open}${DIR[p.direction]} ${p.distance_m}미터 앞에 보이는 곳은 ${p.name}입니다. ${p.summary}${n?` 근처 ${DIR[n.direction]}에는 ${n.name}도 있어요.`:''}${T.close}`;
 }
 
 async function ask(question, auto=false, placeId=null){
-  log(auto?'s':'u', (auto?'🔔 자동 안내: ':'🙋 ')+question);
-  let text, engine;
+  const q=question.trim(); S.lastTalk=Date.now();
+  log(auto?'s':'u', (auto?'🔔 ':'')+q);
+  chips([]);
+  const pl=plan(q, placeId);
+  if(pl.msg){ log('a','🎧 '+pl.msg); say(pl.msg); return; }
+  let text=null, engine, mode=pl.mode, place=pl.place, ups=null;
   if(llmReady()){
-    const t=pickLocal(question, placeId);
-    if(!t.place){ text=t.text; engine='로컬'; }
-    else try{ text=await callLLM(buildPrompt(t.place,question,t.neighbors)); engine=$('prov').value; setMode(false); }
-    catch(e){ log('s','⚠️ AI 호출 실패('+e.message+') → 템플릿으로 대신 답합니다. 키·모델·네트워크를 확인하세요.'); text=templateText(t.place,t.neighbors); engine='템플릿'; }
+    try{ text=await callLLM(buildMessages(pl,q), pl.mode==='story'?1400:700); engine=$('prov').value; setMode(false); }
+    catch(e){ log('s','⚠️ AI 호출 실패('+e.message+') → 템플릿으로 대신 답합니다. 키·모델·네트워크를 확인하세요.'); engine='템플릿'; }
   } else {
     try{
-      const r = await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(4000),
-        body:JSON.stringify({lat:S.lat,lng:S.lng,heading:S.heading,radius_m:S.radius,question,persona:$('persona').value,place_id:placeId})});
-      if(!r.ok) throw 0; text=(await r.json()).text; engine='서버'; setMode(true);
-    }catch{ const t=pickLocal(question,placeId); text=t.place?templateText(t.place,t.neighbors):t.text; engine='템플릿'; setMode(false); }
+      const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(60000),
+        body:JSON.stringify({lat:S.lat,lng:S.lng,heading:S.heading,radius_m:S.radius,question:q,persona:$('persona').value,
+          place_id:placeId,history:S.history.slice(-8),focus:S.focus})});
+      if(!r.ok) throw 0;
+      const a=await r.json(); text=a.text; engine='서버'; mode=a.mode; place=a.place||place; ups=a.follow_ups; setMode(true);
+    }catch{ setMode(false); engine='템플릿'; }
   }
-  log('a',`🎧 [${PERSONAS[$('persona').value].label} · ${engine}] `+text); say(text); draw();
+  if(text==null) text=templateText(pl);
+  log('a',`🎧 [${PERSONAS[$('persona').value].label} · ${engine}] `+text); say(text);
+  const turn=[{role:'user',content:q||'이 장소를 이야기해줘'},{role:'assistant',content:text}];
+  S.history = mode==='followup' ? S.history.concat(turn) : turn;   // 새 이야기면 맥락 리셋
+  S.focus = place;
+  chips(ups || (mode==='story' ? SHARED.FOLLOW_UPS.ko.slice(0,3) : SHARED.FOLLOW_UPS.ko.slice(3)));
+  draw();
 }
 function setMode(b){ S.backend=b; $('mode').textContent=b?'서버 연결됨 (/api/ask)':'로컬 모드'; }
 
 function say(t){
   if(!$('speak').checked) return Voice.stop();
-  Voice.speak(t,{persona:$('persona').value}); // 서버 TTS가 없으면 자동으로 브라우저 음성
+  Voice.say(t,{persona:$('persona').value}); // 서버 TTS가 없으면 자동으로 브라우저 음성
 }
-function log(cls,t){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=t; $('log').prepend(d); }
+function log(cls,t){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=t; const l=$('log'); l.appendChild(d); l.scrollTop=l.scrollHeight; }
+function chips(list){
+  $('chips').innerHTML='';
+  list.forEach(t=>{ const b=document.createElement('button'); b.className='sec chip'; b.textContent=t; b.onclick=()=>ask(t); $('chips').appendChild(b); });
+}
 
 // ---------- 이동/자동 안내 ----------
 function move(m){ // heading 방향으로 m 미터
@@ -210,7 +315,7 @@ function afterMove(){
   draw();
   if(!$('auto').checked) return;
   const fresh = nearby().find(p=>p.distance_m<80 && !S.spoken.has(p.id));
-  if(fresh){ S.spoken.add(fresh.id); ask(`${DIR[fresh.direction]}에 있는 ${fresh.name} 설명해줘`, true, fresh.id); }
+  if(fresh && !Voice.speaking() && Date.now()-S.lastTalk>15000){ S.spoken.add(fresh.id); ask(`${DIR[fresh.direction]}에 있는 ${fresh.name} 이야기`, true, fresh.id); }
 }
 
 // ---------- 지도 그리기 ----------

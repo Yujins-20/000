@@ -50,7 +50,7 @@ def test_openai_compat_parsing(monkeypatch):
 
 def test_each_persona_changes_prompt_and_keeps_grounding_rule():
     p = Place(id="x", name="콜로세움", lat=0, lng=0, summary="80년 완공.", distance_m=50, direction="left")
-    prompts = {k: narrator.build_prompt(p, "", "ko", k, []) for k in narrator.PERSONAS}
+    prompts = {k: narrator.build_system(p, "ko", k, []) for k in narrator.PERSONAS}
     assert len(set(prompts.values())) == len(narrator.PERSONAS)
     for k, pr in prompts.items():
         assert narrator.PERSONAS[k]["style"] in pr
@@ -59,7 +59,7 @@ def test_each_persona_changes_prompt_and_keeps_grounding_rule():
 
 def test_unknown_persona_falls_back_to_historian():
     p = Place(id="x", name="A", lat=0, lng=0)
-    assert narrator.PERSONAS["historian"]["style"] in narrator.build_prompt(p, "", "ko", "nope", [])
+    assert narrator.PERSONAS["historian"]["style"] in narrator.build_system(p, "ko", "nope", [])
 
 
 def test_simulator_persona_ids_match_backend():
