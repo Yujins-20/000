@@ -60,3 +60,7 @@ def limit_ask(request: Request):
 
 def limit_tts(request: Request):
     _limit("tts", config.RATE_LIMIT_TTS_PER_MIN, request)
+
+
+def limit_feedback(request: Request):
+    _limit("feedback", config.RATE_LIMIT_FEEDBACK_PER_MIN, request)

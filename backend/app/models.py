@@ -55,3 +55,14 @@ class LookRequest(Location):
 class TtsRequest(BaseModel):
     text: str
     persona: str = "historian"
+
+
+class FeedbackRequest(BaseModel):
+    kind: Literal["inaccurate", "offensive", "other"]
+    question: str = Field(default="", max_length=500)
+    answer: str = Field(default="", max_length=4000)
+    place_id: str | None = Field(default=None, max_length=200)
+    comment: str = Field(default="", max_length=1000)
+    persona: str = Field(default="", max_length=40)
+    lang: str = Field(default="", max_length=10)
+    app_version: str = Field(default="", max_length=20)

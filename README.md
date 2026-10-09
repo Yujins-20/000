@@ -18,6 +18,9 @@ uvicorn app.main:app --reload --host 0.0.0.0
 [docs/CONVERSATION.md](docs/CONVERSATION.md) — `POST /api/ask/stream`(SSE), history/focus 기반 멀티턴, `depth=rich|grounded`.
 시뮬레이터 동기화: 프롬프트를 바꾸면 `python backend/scripts/sync_sim.py --write` 실행(테스트가 어긋남을 잡아줍니다).
 
+## 모바일 앱 (Android·iOS)
+[docs/APP_RELEASE.md](docs/APP_RELEASE.md) — Capacitor 앱(`app/`), 스토어 서류(`docs/store/`), CI(`.github/workflows/mobile.yml`). 실기기 검증과 스토어 계정·서명은 별도 필요.
+
 ## 서버 배포
 [docs/DEPLOY.md](docs/DEPLOY.md) — GPU 서버에 8082로 띄우고 터널로 공개, `scripts/make_env_server.sh`(키 비출력)·`scripts/run_server.sh`, 별도 프런트 도메인은 `web/config.js`.
 

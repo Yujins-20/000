@@ -1,0 +1,29 @@
+{
+  "name": "walkguide-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WalkGuide 네이티브 앱(Capacitor). 웹 코드는 ../web 을 그대로 재사용한다.",
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs",
+    "sync": "npm run build:web && cap sync",
+    "sync:android": "npm run build:web && cap sync android && node scripts/patch-android.mjs",
+    "sync:ios": "npm run build:web && cap sync ios && node scripts/patch-ios.mjs",
+    "assets": "capacitor-assets generate --android --ios",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/camera": "^8.2.5",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
+    "@capgo/background-geolocation": "^8.4.11",
+    "@capgo/capacitor-speech-recognition": "^8.4.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3"
+  }
+}

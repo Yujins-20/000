@@ -41,3 +41,15 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "")
 # 분당 요청 제한(IP별, 0이면 끔). ask=해설/스트림/사진, tts=문장별 합성(스토리 1편 ≈ 10~15회)
 RATE_LIMIT_ASK_PER_MIN = int(os.getenv("RATE_LIMIT_ASK_PER_MIN", "20"))
 RATE_LIMIT_TTS_PER_MIN = int(os.getenv("RATE_LIMIT_TTS_PER_MIN", "150"))
+
+# 앱 강제 업데이트: 이 버전보다 낮은 네이티브 앱은 "업데이트 필요" 화면을 본다 (예: 1.2.0). 기본은 끔.
+MIN_APP_VERSION = os.getenv("MIN_APP_VERSION", "")
+
+# 사용자 신고(AI 생성 콘텐츠 오류·부적절 내용) 저장 파일(JSON Lines). IP 등 개인 식별 정보는 저장하지 않는다.
+FEEDBACK_PATH = os.getenv("FEEDBACK_PATH", "feedback.jsonl")
+FEEDBACK_MAX_BYTES = int(os.getenv("FEEDBACK_MAX_BYTES", str(20 * 1024 * 1024)))
+RATE_LIMIT_FEEDBACK_PER_MIN = int(os.getenv("RATE_LIMIT_FEEDBACK_PER_MIN", "6"))
+
+# 개인정보처리방침 페이지에 표시되는 운영자 정보 (웹 배포용; 앱 빌드는 build-web.mjs 가 같은 값을 채운다)
+OPERATOR_NAME = os.getenv("OPERATOR_NAME", "")
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "")

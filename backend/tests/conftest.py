@@ -9,3 +9,10 @@ def _no_rate_limit(monkeypatch):
     monkeypatch.setattr(config, "RATE_LIMIT_ASK_PER_MIN", 0)
     monkeypatch.setattr(config, "RATE_LIMIT_TTS_PER_MIN", 0)
     ratelimit.limiter.clear()
+
+
+@pytest.fixture(autouse=True)
+def _feedback_tmp(monkeypatch, tmp_path):
+    """신고 파일이 저장소/작업 디렉터리를 더럽히지 않게 임시 경로로."""
+    monkeypatch.setattr(config, "FEEDBACK_PATH", str(tmp_path / "feedback.jsonl"))
+    monkeypatch.setattr(config, "RATE_LIMIT_FEEDBACK_PER_MIN", 0)

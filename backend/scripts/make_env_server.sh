@@ -9,6 +9,8 @@ OUT="${OUT:-.env.server}"
 KEY="$(sed -n 's/^VLM_API_KEY=//p' "$GPU_ENV" | head -n1)"
 [ -n "$KEY" ] || { echo "VLM_API_KEY 를 찾을 수 없습니다: $GPU_ENV" >&2; exit 1; }
 umask 077
+# 값에 공백/특수문자가 있어도 `source` 로 안전하게 읽히도록 큰따옴표로 감싼다
+q() { printf '"%s"' "$(printf '%s' "$1" | sed 's/[\\"$`]/\\&/g')"; }
 {
   echo "LLM_PROVIDER=vlm"
   echo "VLM_BASE_URL=${VLM_BASE_URL:-http://127.0.0.1:8000/v1}"
@@ -24,7 +26,12 @@ umask 077
   echo "MAX_TTS_CHARS=600"
   echo "PLACES_PROVIDER=${PLACES_PROVIDER:-wikipedia}"
   echo "WIKI_LANG=${WIKI_LANG:-ko}"
-  echo "ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}"
+  # 네이티브 앱(Capacitor)의 웹뷰 출처: iOS capacitor://localhost, Android https://localhost. 웹 프런트를 따로 두면 그 주소를 추가.
+  echo "ALLOWED_ORIGINS=$(q "${ALLOWED_ORIGINS:-capacitor://localhost,https://localhost}")"
+  echo "OPERATOR_NAME=$(q "${OPERATOR_NAME:-}")"
+  echo "CONTACT_EMAIL=$(q "${CONTACT_EMAIL:-}")"
+  echo "MIN_APP_VERSION=${MIN_APP_VERSION:-}"
+  echo "FEEDBACK_PATH=${FEEDBACK_PATH:-feedback.jsonl}"
   echo "RATE_LIMIT_ASK_PER_MIN=${RATE_LIMIT_ASK_PER_MIN:-20}"
   echo "RATE_LIMIT_TTS_PER_MIN=${RATE_LIMIT_TTS_PER_MIN:-150}"
 } > "$OUT"

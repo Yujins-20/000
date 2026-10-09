@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>개인정보처리방침 · Privacy Policy</title>
+<style>
+:root{--bg:#f6f4ef;--fg:#1b2a41;--muted:#6b7280;--line:#d8d3c8;--accent:#c1440e}
+@media (prefers-color-scheme:dark){:root{--bg:#10151d;--fg:#eef0f3;--muted:#9aa4b2;--line:#34404f}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 system-ui,sans-serif;padding:20px 16px 48px;max-width:720px;margin-inline:auto}
+h1{font-size:1.4rem}h2{font-size:1.1rem;margin-top:1.6em;border-bottom:1px solid var(--line);padding-bottom:.2em}
+table{border-collapse:collapse;width:100%;font-size:.92rem}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.muted{color:var(--muted)}a{color:var(--accent)}
+</style>
+</head>
+<body>
+<h1>개인정보처리방침</h1>
+<p class="muted">시행일: 2026-10-09 · 운영자: {{OPERATOR_NAME}} · 문의: <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a> · <a href="#en">English</a></p>
+
+<p>워크가이드(이하 "앱")는 걷는 동안 근처 장소를 찾아 AI가 오디오로 설명해 주는 서비스입니다. 앱은 <b>회원가입이 없고</b>, 광고·행태 분석·추적 SDK를 사용하지 않습니다.</p>
+
+<h2>1. 처리하는 정보와 목적</h2>
+<table>
+<tr><th>정보</th><th>언제</th><th>목적</th></tr>
+<tr><td>위치(위도·경도), 이동 방향, 정확도</td><td>안내를 켠 동안 (앱이 백그라운드이거나 화면이 잠겨 있어도, 안내를 켜 둔 경우)</td><td>주변 장소 검색, "오른쪽/왼쪽" 판단, 자동 안내</td></tr>
+<tr><td>질문 내용(입력 또는 음성 인식 결과), 직전 대화 일부</td><td>질문할 때</td><td>해설 생성과 후속 질문 답변</td></tr>
+<tr><td>사진</td><td>'사진으로 물어보기'를 사용할 때</td><td>지금 보는 대상을 AI가 확인해 설명 (<b>서버에 저장하지 않으며</b> 처리 후 폐기)</td></tr>
+<tr><td>신고 내용(신고 유형, 해당 질문·해설, 입력한 의견, 앱 버전)</td><td>'신고'를 보낼 때</td><td>잘못된 해설·부적절한 내용의 확인과 개선</td></tr>
+<tr><td>설정(언어·해설 스타일 등)</td><td>항상</td><td>기기에만 저장되며 서버로 보내지 않음</td></tr>
+</table>
+<p>마이크는 음성으로 질문할 때만, 카메라는 사진으로 물어볼 때만 사용합니다. 위치·마이크·카메라 권한은 기기 설정에서 언제든 끌 수 있습니다.</p>
+
+<h2>2. 정보의 처리와 제공</h2>
+<ul>
+<li>위치·질문·사진은 해설을 만들기 위해 <b>운영자가 관리하는 서버</b>로 전송됩니다(HTTPS 암호화). 해설은 운영자가 관리하는 서버의 AI 모델이 생성합니다. 향후 외부 AI 서비스를 사용하게 되면 이 방침과 앱 안내를 먼저 갱신합니다.</li>
+<li>주변 장소를 찾기 위해 서버가 위키백과 등 공개 장소 데이터에 위치 좌표로 조회할 수 있습니다. 이때 전송되는 것은 좌표뿐이며 기기 식별 정보는 포함되지 않습니다.</li>
+<li>서버 앞단의 네트워크 서비스(예: Cloudflare)가 통신 중계를 위해 접속 정보(IP 주소, 시각)를 처리할 수 있습니다.</li>
+<li>법령에 근거가 있는 경우를 제외하고 개인정보를 제3자에게 판매하거나 광고 목적으로 제공하지 않습니다.</li>
+</ul>
+
+<h2>3. 보관과 삭제</h2>
+<ul>
+<li>위치·질문·사진은 해설 생성에 필요한 시간 동안만 메모리에서 처리하며, 앱 서버는 이를 별도 데이터베이스에 저장하지 않습니다. 서버 접속 로그에는 요청 본문(위치·질문·사진)이 기록되지 않습니다.</li>
+<li>생성된 해설의 음성은 같은 문장을 다시 만들지 않기 위해 서버에 캐시될 수 있으며, 이는 개별 이용자와 연결되지 않습니다.</li>
+<li>신고 내용은 개선 목적으로 보관하며 삭제를 요청하실 수 있습니다.</li>
+<li>회원 정보가 없으므로 이용자를 식별해 삭제할 데이터가 별도로 존재하지 않습니다. 신고 내용 등의 삭제는 위 문의처로 요청해 주세요.</li>
+</ul>
+
+<h2>4. 이용자의 권리</h2>
+<p>기기 설정에서 위치·마이크·카메라 권한을 철회할 수 있고, 앱의 '안내 종료'로 위치 수집을 즉시 멈출 수 있습니다. 보관 중인 신고 내용의 열람·삭제는 문의처로 요청하세요.</p>
+
+<h2>5. 아동</h2>
+<p>앱은 만 14세 미만 아동을 주된 대상으로 하지 않습니다.</p>
+
+<h2>6. AI 해설에 대한 안내</h2>
+<p>해설은 AI가 생성하며 사실과 다를 수 있습니다. 중요한 정보(운영 시간, 입장 요금, 안전)는 공식 안내로 확인하세요. 오류나 부적절한 내용은 앱의 '신고'로 알려 주세요.</p>
+
+<h2>7. 방침의 변경</h2>
+<p>이 방침이 바뀌면 앱과 이 페이지에 시행일과 함께 공지합니다.</p>
+
+<hr style="margin:2.5em 0;border:0;border-top:1px solid var(--line)">
+
+<h1 id="en">Privacy Policy</h1>
+<p class="muted">Effective: 2026-10-09 · Operator: {{OPERATOR_NAME}} · Contact: <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a></p>
+<p>WalkGuide finds nearby places while you walk and narrates them with AI. There are <b>no accounts</b>, and the app uses no advertising, behavioral analytics or tracking SDKs.</p>
+<h2>What we process</h2>
+<ul>
+<li><b>Location</b> (coordinates, direction of travel, accuracy) while guidance is turned on — including in the background or with the screen locked if you left guidance on — to find nearby places, tell left from right and start automatic narration.</li>
+<li><b>Questions</b> you type or speak, and a short part of the recent conversation, to answer follow-up questions.</li>
+<li><b>Photos</b> only when you use "Ask with a photo". They are not stored on the server and are discarded after processing.</li>
+<li><b>Reports</b> you send (type, the related question and answer, your comment, app version) so we can fix wrong or inappropriate narration.</li>
+<li><b>Settings</b> (language, narration style) stay on your device.</li>
+</ul>
+<h2>How it is used and shared</h2>
+<p>Location, questions and photos are sent over HTTPS to servers managed by the operator, where an AI model generates the narration. The server may look up public place data (e.g., Wikipedia) using coordinates only. A network service in front of the server (e.g., Cloudflare) may process connection data such as IP address and time to relay traffic. We do not sell personal data or use it for advertising.</p>
+<h2>Retention and deletion</h2>
+<p>Location, questions and photos are processed in memory only for as long as needed to generate a response and are not written to an application database; server access logs do not contain request bodies. Synthesized narration audio may be cached and is not linked to individual users. Reports are kept to improve the service; contact us to request deletion. Because there are no accounts, there is no other user profile to delete.</p>
+<h2>Your choices</h2>
+<p>You can revoke location, microphone and camera permissions in your device settings, and stop location collection immediately with "Stop guidance" in the app.</p>
+<h2>Children</h2>
+<p>The app is not directed to children under 14.</p>
+<h2>AI-generated content</h2>
+<p>Narration is generated by AI and may be inaccurate. Please verify opening hours, prices and safety information with official sources, and use "Report" in the app to flag errors or inappropriate content.</p>
+<h2>Changes</h2>
+<p>We will post changes here and in the app with a new effective date.</p>
+</body>
+</html>

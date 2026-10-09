@@ -1,0 +1,124 @@
+name: mobile
+
+# 백엔드·웹 테스트 → Android(APK) 빌드 → iOS(시뮬레이터) 빌드. 릴리스 번들은 수동 실행(workflow_dispatch)에서만 만든다.
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths: ['app/**', 'web/**', 'backend/**', '.github/workflows/mobile.yml']
+  pull_request:
+    paths: ['app/**', 'web/**', 'backend/**', '.github/workflows/mobile.yml']
+  workflow_dispatch:
+    inputs:
+      release:
+        description: '서명된 Android 릴리스 번들(AAB) 생성 (아래 Secrets/Variables 필요)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r backend/requirements.txt
+      - run: python -m pytest -q
+        working-directory: backend
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: app/package-lock.json }
+      - run: npm ci
+        working-directory: app
+      - run: npm test
+        working-directory: app
+      - run: for f in web/*.js; do node --check "$f"; done
+      - name: sim.html 공유 블록이 백엔드와 일치하는지
+        run: python backend/scripts/sync_sim.py
+
+  android:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: app/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+        working-directory: app
+      - name: 웹 빌드 + cap sync + 패치
+        run: npm run sync:android
+        working-directory: app
+        env:
+          WALKGUIDE_API_BASE: ${{ vars.WALKGUIDE_API_BASE }}
+      - name: Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: app/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: walkguide-debug-apk
+          path: app/android/app/build/outputs/apk/debug/*.apk
+
+  android-release:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release }}
+    needs: android
+    runs-on: ubuntu-latest
+    environment: production        # GitHub Environments 에서 승인자를 지정하면 릴리스 빌드 전에 승인이 필요하다
+    env:
+      RELEASE: '1'
+      CONFIRM_APP_ID: ${{ vars.CONFIRM_APP_ID }}               # 예: app.walkguide.audioguide (스토어 등록 후 변경 불가)
+      WALKGUIDE_API_BASE: ${{ vars.WALKGUIDE_API_BASE }}       # 예: https://api.example.com (고정 도메인, https)
+      OPERATOR_NAME: ${{ vars.OPERATOR_NAME }}
+      CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+      BUILD_NUMBER: ${{ github.run_number }}                   # versionCode: 실행마다 증가
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: app/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+        working-directory: app
+      - name: 업로드 키 복원 (키스토어는 저장소에 없고 Secrets 에만 있다)
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      - run: npm run sync:android
+        working-directory: app
+      - name: Release AAB (서명)
+        run: ./gradlew bundleRelease --no-daemon
+        working-directory: app/android
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/upload.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: walkguide-release-aab
+          path: app/android/app/build/outputs/bundle/release/*.aab
+
+  ios:
+    needs: test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: app/package-lock.json }
+      - run: npm ci
+        working-directory: app
+      - name: 웹 빌드 + cap sync + 패치
+        run: npm run sync:ios
+        working-directory: app
+        env:
+          WALKGUIDE_API_BASE: ${{ vars.WALKGUIDE_API_BASE }}
+      - name: 시뮬레이터 빌드 (서명 없이 컴파일/링크 확인)
+        run: >
+          xcodebuild -project app/ios/App/App.xcodeproj -scheme App -configuration Debug
+          -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build

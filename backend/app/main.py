@@ -3,15 +3,15 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, llm, narrator, tts, vision
+from . import config, feedback, llm, narrator, tts, vision
 from .cache import TTLCache
 from .geo import direction_from_text
-from .models import Answer, AskRequest, LookRequest, Location, Place, TtsRequest
+from .models import Answer, AskRequest, FeedbackRequest, LookRequest, Location, Place, TtsRequest
 from .places import get_provider
-from .ratelimit import limit_ask, limit_tts
+from .ratelimit import limit_ask, limit_feedback, limit_tts
 from .streaming import SentenceChunker
 
 app = FastAPI(title="WalkGuide")
@@ -45,7 +45,8 @@ def vlm_configured() -> bool:
 def health():
     """연결 점검용. 어떤 엔진이 켜져 있는지만 알려주고, 주소·키는 노출하지 않는다."""
     return {"ok": True, "llm": llm.resolve_provider(), "tts": tts.configured(),
-            "vision": vlm_configured(), "places": config.PLACES_PROVIDER}
+            "vision": vlm_configured(), "places": config.PLACES_PROVIDER,
+            "min_app_version": config.MIN_APP_VERSION}
 
 
 @app.post("/api/nearby", response_model=list[Place])
@@ -184,7 +185,31 @@ async def tts_endpoint(req: TtsRequest):
     return Response(audio, media_type=mime, headers={"Cache-Control": "public, max-age=86400"})
 
 
-# 프런트엔드 정적 서빙 (API 라우트 이후에 마운트)
 _web = Path(__file__).resolve().parents[2] / "web"
+
+
+def render_privacy() -> str:
+    """운영자 정보 토큰을 환경변수 값으로 채운 개인정보처리방침(웹 배포용)."""
+    import html as _html
+    page = (_web / "privacy.html").read_text(encoding="utf-8")
+    return (page.replace("{{OPERATOR_NAME}}", _html.escape(config.OPERATOR_NAME or "(운영자 미설정)"))
+                .replace("{{CONTACT_EMAIL}}", _html.escape(config.CONTACT_EMAIL or "(이메일 미설정)")))
+
+
+@app.get("/privacy.html", response_class=HTMLResponse, include_in_schema=False)
+def privacy():
+    return HTMLResponse(render_privacy())
+
+
+@app.post("/api/feedback", dependencies=[Depends(limit_feedback)])
+async def feedback_endpoint(req: FeedbackRequest):
+    """AI 해설 신고(사실 오류/부적절/기타). 운영자가 feedback.jsonl 을 검토해 프롬프트·검수본을 개선한다."""
+    try:
+        feedback.save(req)
+    except feedback.FeedbackFull:
+        raise HTTPException(503, "feedback storage full")
+    return {"ok": True}
+
+
 if _web.exists():
     app.mount("/", StaticFiles(directory=_web, html=True), name="web")

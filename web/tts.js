@@ -3,12 +3,13 @@
 //   Voice.start({persona, lang}) → Voice.push(sentence)* → Voice.end()      (스트리밍)
 //   Voice.say(text, opts)                                                    (한 번에)
 const Voice = (() => {
-  let serverOk = true, sid = 0, cur = null, audio = null, base = '';
+  let serverOk = true, sid = 0, cur = null, audio = null, base = '', fetcher = null;
   const AHEAD = 2; // 재생 중 미리 합성해 둘 문장 수
   const split = t => (t.match(/[^.!?。…]+[.!?。…]*/g) || [t]).map(s => s.trim()).filter(Boolean);
 
   async function fetchAudio(text, persona) {
     try {
+      if (fetcher) { const u = await fetcher(text, persona); if (u) return u; } // 예: 앱이 백그라운드일 때 네이티브 HTTP
       const r = await fetch(base + '/api/tts', {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({text, persona}), signal: AbortSignal.timeout(20000)});
       if (r.status === 501 || r.status === 404) { serverOk = false; return null; } // 이 세션은 서버 TTS 안 씀
@@ -80,5 +81,7 @@ const Voice = (() => {
   const speaking = () => !!cur && !cur.done;
   // 서버 주소 지정(다른 도메인에서 열었을 때). 바꾸면 서버 TTS를 다시 시도한다.
   function setBase(url) { base = (url || '').replace(/\/+$/, ''); serverOk = true; }
-  return {start, push, end, say, stop, speaking, split, setBase};
+  // 전송 계층 교체 훅: (text, persona) => url | null. null 이면 기본 fetch 를 쓴다.
+  const setFetcher = f => { fetcher = f; };
+  return {start, push, end, say, stop, speaking, split, setBase, setFetcher};
 })();

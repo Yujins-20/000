@@ -1,0 +1,13 @@
+{
+  "appId": "app.walkguide.audioguide",
+  "appName": "워크가이드",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "useLegacyBridge": true, "allowMixedContent": false },
+  "ios": { "contentInset": "always", "preferredContentMode": "mobile" },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 600, "launchAutoHide": true, "backgroundColor": "#1b2a41", "showSpinner": false },
+    "StatusBar": { "style": "DARK", "backgroundColor": "#1b2a41" },
+    "CapacitorHttp": { "enabled": false }
+  }
+}

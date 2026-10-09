@@ -72,6 +72,7 @@ label{display:flex;align-items:center;gap:6px}
 
 <div class="card"><b>대화</b><div id="log"></div><div id="chips" class="row" style="flex-wrap:wrap"></div></div>
 
+<script src="config.js"></script>
 <script src="tts.js"></script>
 <script>
 // ---------- 지리 계산 (backend/app/geo.py 와 동일 로직) ----------
@@ -342,7 +343,7 @@ $('mic').onclick=()=>{
   const r=new SR(); r.lang='ko-KR'; r.onresult=e=>ask(e.results[0][0].transcript); r.start();
 };
 addEventListener('keydown',e=>{ const k={ArrowUp:()=>move(20),ArrowDown:()=>move(-20),ArrowLeft:()=>turn(-45),ArrowRight:()=>turn(45)}[e.key]; if(k){e.preventDefault();k();} });
-const initial=new URLSearchParams(location.search).get('server') ?? store.get('wg_server');
+const initial=new URLSearchParams(location.search).get('server') ?? (window.WALKGUIDE_API_BASE || store.get('wg_server'));
 $('server').value=initial; setApi(initial);
 $('connect').onclick=()=>{ setApi($('server').value); connect(); };
 $('server').addEventListener('keydown',e=>{ if(e.key==='Enter') $('connect').click(); });

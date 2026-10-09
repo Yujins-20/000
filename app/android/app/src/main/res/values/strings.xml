@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">워크가이드</string>
+    <string name="title_activity_main">워크가이드</string>
+    <string name="package_name">app.walkguide.audioguide</string>
+    <string name="custom_url_scheme">app.walkguide.audioguide</string>
+    <string name="capacitor_background_geolocation_notification_channel_name">안내 중 알림</string>
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_tracking</string>
+    <string name="capacitor_background_geolocation_notification_color">#C1440E</string>
+</resources>
