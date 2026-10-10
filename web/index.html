@@ -94,6 +94,7 @@ li{margin:.3em 0}
 </dialog>
 
 <script src="config.js"></script>
+<script>if(/[?&]sim=1/.test(location.search))document.write('<script src="sim-mock.js"><\/script>');</script>
 <script src="native.js"></script>
 <script src="tts.js"></script>
 <script src="app.js"></script>

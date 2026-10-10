@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-export const EXCLUDE = new Set(['sw.js', 'manifest.json', 'config.js']); // 서비스워커/PWA 매니페스트는 네이티브에 불필요
+export const EXCLUDE = new Set(['sw.js', 'manifest.json', 'config.js', 'sim-mock.js', 'app-sim.html']); // 서비스워커/PWA 매니페스트·시뮬레이터 모의 계층은 앱에 넣지 않는다
 
 export function validateApiBase(base, release) {
   const b = (base || '').trim().replace(/\/+$/, '');

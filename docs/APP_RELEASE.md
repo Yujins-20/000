@@ -11,6 +11,32 @@ app/                      Capacitor 프로젝트 (package.json, capacitor.config
 web/native.js             웹/네이티브 공용 인터페이스 (백그라운드 위치, 음성 인식, 카메라, 백그라운드 HTTP)
 ```
 
+## 0. 앱 화면을 바로 보는 방법
+
+| 방법 | 어디서 | 무엇을 볼 수 있나 | 한계 |
+|---|---|---|---|
+| **앱 시뮬레이터(웹)** | 이 저장소의 `web/app-sim.html` (claude.ai 아티팩트 또는 `https://<서버>/app-sim.html`, 로컬은 아래) | 실제 앱 UI·로직을 폰 틀 안에서 실행. 백그라운드 위치/잠금 화면/권한 거부/오프라인/업데이트 필요/iOS·Android 전환을 버튼으로 재현, 어떤 경로(스트리밍 fetch ↔ 네이티브 HTTP)를 탔는지 이벤트 로그로 확인 | 네이티브 플러그인과 서버가 **가짜**(해설은 AI가 아닌 데모 문장). 실제 GPS·잠금화면 오디오·배터리는 못 봄 |
+| **Android 에뮬레이터** | 본인 PC의 Android Studio | 실제 Android 앱(WebView + 실제 플러그인 코드), 실제 서버 연결 | 이 개발 환경에서는 불가(SDK 다운로드 차단·KVM 없음) |
+| **iOS 시뮬레이터** | Mac의 Xcode | 실제 iOS 앱 | macOS 필요 |
+| **실기기** | USB/TestFlight/내부 테스트 | 백그라운드·오디오·배터리까지 전부 | 계정·서명 필요 |
+
+### 앱 시뮬레이터 (웹) — 로컬에서 열기
+```bash
+cd web && python3 -m http.server 8777        # 또는 백엔드: cd backend && bash scripts/run_server.sh
+# 브라우저: http://localhost:8777/app-sim.html
+```
+사용 순서: 폰 화면 **▶ 시작 → 동의하고 시작** → "앞에 있는 건물 뭐야?" → 추천 질문 칩으로 후속 질문 → 패널에서 **🔒 화면 잠금**을 켜고 **▲ 20m 걷기** 몇 번 → 새 장소에 가까워지면 로그에 `CapacitorHttp /api/ask (백그라운드 경로)` 가 찍힘.
+(`?sim=1` 일 때만 `sim-mock.js` 가 가짜 네이티브/서버를 주입한다. 이 파일과 `app-sim.html` 은 앱 빌드에서 제외된다.)
+
+### 실제 에뮬레이터/시뮬레이터 (본인 PC)
+```bash
+cd app && npm ci
+WALKGUIDE_API_BASE=https://api.<도메인> npm run sync:android && npx cap run android   # 에뮬레이터/기기 선택 → 실행
+npm run sync:ios && npx cap run ios                                                      # macOS
+```
+위치 흉내: **Android** — 에뮬레이터 ⋮ → Location 에서 경로/좌표 지정, 또는 `adb emu geo fix 12.4922 41.8902`(경도 위도 순; 콜로세움). **iOS 시뮬레이터** — 메뉴 Features → Location → *City Run* / *Custom Location…*.
+백그라운드 확인: 안내를 켠 뒤 홈 버튼/전원 버튼으로 앱을 내리고 위치를 계속 바꿔 보기(실제 잠금화면 오디오는 에뮬레이터에서 신뢰할 수 없으니 실기기로).
+
 ## 1. 지금 상태 — 무엇이 검증됐나
 
 | 항목 | 상태 |

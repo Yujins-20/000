@@ -199,8 +199,9 @@ def test_sim_shared_block_is_in_sync_with_backend():
     spec = importlib.util.spec_from_file_location("sync_sim", root / "backend" / "scripts" / "sync_sim.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    html = (root / "web" / "sim.html").read_text()
-    assert mod.shared_block() in html, "sim.html 이 낡았습니다: python backend/scripts/sync_sim.py --write"
+    for name in ("sim.html", "sim-mock.js"):
+        text = (root / "web" / name).read_text()
+        assert mod.shared_block() in text, f"{name} 이 낡았습니다: python backend/scripts/sync_sim.py --write"
 
 
 # ---------- 연결 점검 / CORS ----------

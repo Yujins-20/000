@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>앱 시뮬레이터</title>
+<style>
+:root{--bg:#eceae3;--fg:#1b2a41;--card:#fff;--muted:#6b7280;--line:#d8d3c8;--accent:#c1440e;--ok:#2f855a;--net:#2b6cb0;--native:#8a4fbf}
+:root[data-theme="dark"]{--bg:#0c1118;--fg:#eef0f3;--card:#1b2431;--muted:#9aa4b2;--line:#34404f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0c1118;--fg:#eef0f3;--card:#1b2431;--muted:#9aa4b2;--line:#34404f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding:16px;max-width:1040px;margin-inline:auto}
+h1{font-size:1.25rem;margin:.2em 0}
+.lead{color:var(--muted);margin:.2em 0 14px}
+.grid{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.stage{display:flex;justify-content:center}
+.phone{position:relative;width:410px;height:820px;border-radius:54px;background:#0b0e14;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.35),inset 0 0 0 2px #2a3140;transform-origin:top center}
+.phone.ios{border-radius:60px}
+.notch{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:5;pointer-events:none;background:#0b0e14}
+.android .notch{width:14px;height:14px;border-radius:50%;top:26px}
+.ios .notch{width:120px;height:30px;border-radius:0 0 18px 18px;top:14px}
+.screen{position:relative;width:100%;height:100%;border-radius:42px;overflow:hidden;background:#fff}
+.ios .screen{border-radius:46px}
+iframe{width:100%;height:100%;border:0;display:block;background:#f6f4ef}
+.lock{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 0%,#1d2a40,#05070b);color:#fff;display:none;flex-direction:column;align-items:center;padding:90px 22px 0;z-index:4;text-align:center}
+.lock.on{display:flex}
+.lock .clock{font-size:64px;font-weight:300;letter-spacing:-1px}
+.lock .sub{opacity:.7;margin-top:2px}
+.notif{margin-top:36px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border-radius:18px;padding:12px 14px;width:100%;text-align:left}
+.notif b{display:block;font-size:.85rem;opacity:.8}
+.lock .hint{margin-top:auto;margin-bottom:34px;font-size:.82rem;opacity:.6}
+.panel{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.card h2{font-size:.95rem;margin:0 0 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button,select{font:inherit;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:8px 12px;cursor:pointer}
+button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+button:hover{border-color:var(--accent)}
+label{display:inline-flex;align-items:center;gap:6px}
+.muted{color:var(--muted);font-size:.86rem}
+.pill{display:inline-block;padding:1px 9px;border-radius:99px;background:var(--bg);font-size:.8rem;color:var(--muted)}
+.pill.ok{background:var(--ok);color:#fff}
+#log{max-height:250px;overflow:auto;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;display:flex;flex-direction:column-reverse;gap:3px}
+#log div{padding:3px 8px;border-radius:7px;background:var(--bg);border-left:3px solid var(--muted)}
+#log .native{border-left-color:var(--native)}#log .net{border-left-color:var(--net)}#log .ok{border-left-color:var(--ok)}
+ul.small{margin:.2em 0;padding-left:1.15em}ul.small li{margin:.15em 0}
+</style>
+</head>
+<body>
+<h1>📱 앱 시뮬레이터</h1>
+<p class="lead">실제 앱 화면과 로직을 휴대폰 틀 안에서 그대로 실행합니다. <b>네이티브 플러그인(백그라운드 위치·음성 인식·카메라)과 서버만 가짜</b>로 바꿔서, 서버 없이도 앱의 흐름을 바로 볼 수 있어요. 해설은 AI가 아니라 준비된 데모 문장입니다.</p>
+
+<div class="grid">
+  <div class="stage"><div class="phone android" id="phone">
+    <div class="notch"></div>
+    <div class="screen">
+      <iframe id="frame" title="워크가이드 앱"></iframe>
+      <div class="lock" id="lock">
+        <div class="clock" id="clock">9:41</div><div class="sub">화면 잠금 — 앱은 백그라운드에서 계속 동작해요</div>
+        <div class="notif"><b>워크가이드 · 지금</b><span id="notifText">걷는 동안 주변 장소를 찾아 안내하고 있어요</span></div>
+        <div class="hint">(주머니 속 상태) 새 장소에 가까워지면 안내 음성이 나와요</div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="panel">
+    <div class="card"><h2>1. 기기</h2>
+      <div class="row"><button id="pAndroid" class="on">Android</button><button id="pIos">iOS</button>
+        <button id="reload">↻ 처음부터</button></div>
+      <p class="muted" style="margin:8px 0 0">먼저 폰 화면에서 <b>▶ 시작</b> → <b>동의하고 시작</b>을 눌러 보세요. 백그라운드 위치: <span class="pill" id="bgState">꺼짐</span></p></div>
+
+    <div class="card"><h2>2. 걷기 (GPS 흉내)</h2>
+      <div class="row"><button data-cmd="turn" data-deg="-45">↶ 왼쪽 45°</button><button data-cmd="move" data-m="20">▲ 20m 걷기</button><button data-cmd="turn" data-deg="45">오른쪽 45° ↷</button>
+        <label><input type="checkbox" id="auto"> 자동 걷기</label></div>
+      <p class="muted" style="margin:8px 0 0" id="where">위치: 콜로세움 서쪽, 동쪽(90°)을 향해 걷는 중</p></div>
+
+    <div class="card"><h2>3. 상황 만들기</h2>
+      <div class="row">
+        <button id="tLock">🔒 화면 잠금(백그라운드)</button>
+        <button id="tOffline">📡 오프라인</button>
+        <button id="tUpdate">⬆ 업데이트 필요</button>
+        <button id="tDeny">🚫 위치 권한 거부</button></div>
+      <p class="muted" style="margin:8px 0 6px">🎤 음성 질문 문구:
+        <select id="voice"><option>오른쪽 건물 뭐야?</option><option>왼쪽에 뭐 있어?</option><option>앞에 있는 건물 뭐야?</option><option>뒤에 뭐 있어?</option><option>누가 지었어?</option></select></p>
+      <ul class="small muted"><li>잠금 → 걷기/질문: 해설·음성이 <b>네이티브 HTTP 경로</b>로 바뀌는지 로그에서 확인</li>
+        <li>권한 거부: 켠 뒤 폰에서 <b>■ 종료 → ▶ 시작</b> (또는 처음부터)</li></ul></div>
+
+    <div class="card"><h2>이벤트 로그 <span class="muted">(어떤 경로가 쓰였는지)</span></h2><div id="log"></div></div>
+
+    <div class="card"><h2>이 시뮬레이터가 보여 주는 것 / 못 보여 주는 것</h2>
+      <ul class="small">
+        <li><b>보여 줌</b>: 실제 앱 UI·상태 전환, 동의 화면, 스토리→후속 질문 흐름, 신고, 권한 거부·오프라인·업데이트 화면, 포그라운드/백그라운드 경로 선택</li>
+        <li><b>못 보여 줌</b>: 실제 GPS·잠금화면 오디오·배터리·네이티브 플러그인의 실제 동작 — 이는 실기기에서만 확인됩니다 (docs/APP_RELEASE.md §5)</li></ul></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const frame = $('frame'), phone = $('phone');
+const state = {platform: 'android', deny: false, offline: false, update: false, locked: false, bg: false};
+let ready = false;
+
+// 앱 파일 위치: 서버에서 열면 같은 폴더, claude.ai 아티팩트로 열면 app/ 아래
+async function appBase(){ try{ const r = await fetch('app/index.html'); if(r.ok) return 'app/'; }catch(e){} return ''; }
+
+async function load(){
+  ready = false; state.bg = false; $('bgState').textContent = '꺼짐'; $('bgState').className = 'pill';
+  const base = await appBase();
+  frame.src = `${base}index.html?sim=1&platform=${state.platform}&t=${Date.now()}`;
+  phone.className = 'phone ' + state.platform;
+}
+function send(m){ if(frame.contentWindow) frame.contentWindow.postMessage({type:'sim', ...m}, '*'); }
+function log(text, kind){ const d = document.createElement('div'); d.className = kind || ''; d.textContent = new Date().toLocaleTimeString('ko-KR', {hour12:false}) + '  ' + text; $('log').prepend(d); while($('log').children.length > 60) $('log').lastChild.remove(); }
+
+addEventListener('message', e => {
+  const m = e.data; if(!m) return;
+  if(m.type === 'log') log(m.text, m.kind);
+  else if(m.type === 'ready'){ ready = true; send({cmd:'deny', value:state.deny}); send({cmd:'voice', value:$('voice').value}); if(state.offline) send({cmd:'offline', value:true}); if(state.update) send({cmd:'update', value:true}); }
+  else if(m.type === 'bg-started'){ state.bg = true; $('bgState').textContent = '켜짐 (알림 표시중)'; $('bgState').className = 'pill ok'; $('notifText').textContent = m.message || ''; }
+  else if(m.type === 'bg-stopped'){ state.bg = false; $('bgState').textContent = '꺼짐'; $('bgState').className = 'pill'; }
+  else if(m.type === 'where') $('where').textContent = `위치 ${m.lat.toFixed(5)}, ${m.lng.toFixed(5)} · 진행방향 ${Math.round(m.bearing)}°`;
+});
+
+function toggle(btn, key, cmd, label){
+  btn.onclick = () => { state[key] = !state[key]; btn.classList.toggle('on', state[key]); send({cmd, value:state[key]}); log(`${label} ${state[key] ? 'ON' : 'OFF'}`, 'ok'); if(key === 'locked') $('lock').classList.toggle('on', state.locked); };
+}
+toggle($('tLock'), 'locked', 'bg', '화면 잠금');
+toggle($('tOffline'), 'offline', 'offline', '오프라인');
+toggle($('tUpdate'), 'update', 'update', '업데이트 필요');
+toggle($('tDeny'), 'deny', 'deny', '위치 권한 거부');
+
+document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => {
+  send(b.dataset.cmd === 'move' ? {cmd:'move', meters:+b.dataset.m} : {cmd:'turn', deg:+b.dataset.deg}); send({cmd:'where'});
+});
+let timer = null;
+$('auto').onchange = e => { clearInterval(timer); if(e.target.checked) timer = setInterval(() => { send({cmd:'move', meters:3}); send({cmd:'where'}); }, 2000); };
+$('voice').onchange = e => send({cmd:'voice', value:e.target.value});
+$('pAndroid').onclick = () => { state.platform = 'android'; $('pAndroid').classList.add('on'); $('pIos').classList.remove('on'); load(); };
+$('pIos').onclick = () => { state.platform = 'ios'; $('pIos').classList.add('on'); $('pAndroid').classList.remove('on'); load(); };
+$('reload').onclick = () => { state.locked = false; $('lock').classList.remove('on'); $('tLock').classList.remove('on'); load(); };
+
+// 화면 폭에 맞춰 폰 틀 축소
+function fit(){ const avail = Math.min(innerWidth - 32, 410); const k = Math.min(1, avail / 410); phone.style.transform = `scale(${k})`; phone.parentElement.style.height = (820 * k) + 'px'; phone.style.marginBottom = '0'; }
+addEventListener('resize', fit); fit();
+setInterval(() => { const d = new Date(); $('clock').textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); }, 5000);
+load();
+</script>
+</body>
+</html>

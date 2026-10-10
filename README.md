@@ -19,6 +19,7 @@ uvicorn app.main:app --reload --host 0.0.0.0
 시뮬레이터 동기화: 프롬프트를 바꾸면 `python backend/scripts/sync_sim.py --write` 실행(테스트가 어긋남을 잡아줍니다).
 
 ## 모바일 앱 (Android·iOS)
+**바로 보기**: `web/app-sim.html`(앱 시뮬레이터 — 폰 틀 안에서 실제 앱 화면 실행, 백그라운드/권한/오프라인 상황 재현). 로컬: `cd web && python3 -m http.server 8777` → `http://localhost:8777/app-sim.html`.
 [docs/APP_RELEASE.md](docs/APP_RELEASE.md) — Capacitor 앱(`app/`), 스토어 서류(`docs/store/`), CI(`.github/workflows/mobile.yml`). 실기기 검증과 스토어 계정·서명은 별도 필요.
 
 ## 서버 배포

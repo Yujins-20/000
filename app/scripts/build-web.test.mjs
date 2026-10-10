@@ -23,6 +23,7 @@ test('www 에 웹 자산이 복사되고 config.js 가 생성되며 SW/매니페
   const r = build({ out, apiBase: 'https://api.example.com', release: true, operator: 'Acme <Co>', email: 'privacy@acme.example', confirmAppId: APP_ID });
   for (const f of ['index.html', 'app.js', 'tts.js', 'sim.html']) assert.ok(existsSync(join(out, f)), f);
   assert.ok(!existsSync(join(out, 'sw.js')) && !existsSync(join(out, 'manifest.json')));
+  assert.ok(!existsSync(join(out, 'sim-mock.js')) && !existsSync(join(out, 'app-sim.html')), '시뮬레이터 모의 계층은 앱에 포함되면 안 된다');
   const cfg = readFileSync(join(out, 'config.js'), 'utf8');
   assert.match(cfg, /WALKGUIDE_API_BASE = "https:\/\/api\.example\.com"/);
   assert.match(cfg, new RegExp(`WALKGUIDE_APP_VERSION = "${r.version}"`));
