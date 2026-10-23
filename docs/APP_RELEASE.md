@@ -20,11 +20,13 @@ web/native.js             웹/네이티브 공용 인터페이스 (백그라운�
 | **iOS 시뮬레이터** | Mac의 Xcode | 실제 iOS 앱 | macOS 필요 |
 | **실기기** | USB/TestFlight/내부 테스트 | 백그라운드·오디오·배터리까지 전부 | 계정·서명 필요 |
 
-### 앱 시뮬레이터 (웹) — 로컬에서 열기
+### 앱 시뮬레이터 (웹) — 로컬에서 열기 (한 줄)
 ```bash
-cd web && python3 -m http.server 8777        # 또는 백엔드: cd backend && bash scripts/run_server.sh
-# 브라우저: http://localhost:8777/app-sim.html
+git clone https://github.com/Yujins-20/000.git && cd 000 && git checkout claude/location-audio-travel-guide-nvkgzc   # 이미 있으면 git pull
+node app/scripts/open-simulator.mjs        # Node 18+ 만 있으면 됨(설치·의존성 없음). 서버를 띄우고 기본 브라우저로 http://localhost:8777/app-sim.html 을 연다
+# 옵션: --page sim.html (위치 시뮬레이터) · --port 9000 · --no-open      (Node가 없으면: cd web && python3 -m http.server 8777)
 ```
+서버는 `127.0.0.1`에만 열리고(외부 접속 불가) `web/` 밖의 파일은 서빙하지 않는다. 종료는 Ctrl+C.
 사용 순서: 폰 화면 **▶ 시작 → 동의하고 시작** → "앞에 있는 건물 뭐야?" → 추천 질문 칩으로 후속 질문 → 패널에서 **🔒 화면 잠금**을 켜고 **▲ 20m 걷기** 몇 번 → 새 장소에 가까워지면 로그에 `CapacitorHttp /api/ask (백그라운드 경로)` 가 찍힘.
 (`?sim=1` 일 때만 `sim-mock.js` 가 가짜 네이티브/서버를 주입한다. 이 파일과 `app-sim.html` 은 앱 빌드에서 제외된다.)
 

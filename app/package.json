@@ -9,7 +9,8 @@
     "sync:android": "npm run build:web && cap sync android && node scripts/patch-android.mjs",
     "sync:ios": "npm run build:web && cap sync ios && node scripts/patch-ios.mjs",
     "assets": "capacitor-assets generate --android --ios",
-    "test": "node --test scripts/*.test.mjs"
+    "test": "node --test scripts/*.test.mjs",
+    "sim": "node scripts/open-simulator.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
